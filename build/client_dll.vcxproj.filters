@@ -1,0 +1,26 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="C:\Users\malatindez\Desktop\copying\client_dll\main.cpp">
+      <Filter>client_dll</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="C:\Users\malatindez\Desktop\copying\client_dll\dll_declaration.hpp">
+      <Filter>client_dll</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\malatindez\Desktop\copying\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="C:\Users\malatindez\Desktop\copying\client_dll\CMakeLists.txt">
+      <Filter>client_dll</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="client_dll">
+      <UniqueIdentifier>{BFF8E481-806C-301B-86CD-658BAE31B9F8}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

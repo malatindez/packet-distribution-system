@@ -1,0 +1,6 @@
+C:/Users/malatindez/Desktop/copying/build/CMakeFiles/server_dll.dir
+C:/Users/malatindez/Desktop/copying/build/CMakeFiles/client_dll.dir
+C:/Users/malatindez/Desktop/copying/build/CMakeFiles/server_test.dir
+C:/Users/malatindez/Desktop/copying/build/CMakeFiles/client_test.dir
+C:/Users/malatindez/Desktop/copying/build/CMakeFiles/ALL_BUILD.dir
+C:/Users/malatindez/Desktop/copying/build/CMakeFiles/ZERO_CHECK.dir
