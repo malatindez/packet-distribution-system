@@ -1,5 +1,5 @@
 #pragma once
-#if defined (__WIN32__)
+#if defined (_WIN32)
 
 #include "win-def.hpp"
 #define NOMINMAX

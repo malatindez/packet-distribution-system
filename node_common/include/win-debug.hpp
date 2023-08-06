@@ -1,4 +1,4 @@
-#if defined (__WIN32__)
+#if defined (_WIN32)
 #include "include/library-pch.hpp"
 #include "win.hpp"
 #include <malloc.h>

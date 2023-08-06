@@ -1,4 +1,4 @@
-#if defined (__WIN32__)
+#if defined (_WIN32)
 #include "win-debug.hpp"
 static std::function<void(std::string_view)> OutputDebugStringCallback;
 LONG NTAPI VexHandler(PEXCEPTION_POINTERS ExceptionInfo)

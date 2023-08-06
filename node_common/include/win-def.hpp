@@ -1,4 +1,4 @@
-#if defined (__WIN32__)
+#if defined (_WIN32)
 #ifdef UNDEFINED_MIN
 #pragma pop_macro("min")
 #endif
