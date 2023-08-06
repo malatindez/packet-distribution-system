@@ -16,10 +16,9 @@ foreach(_source IN ITEMS ${NODE_COMMON_SOURCES})
 endforeach()
 
 add_library(node_common STATIC ${NODE_COMMON_SOURCES})
-target_include_directories(node_common PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/third_party/boost)
+target_add_libraries(node_common "openssl" "spdlog" "boost")
+target_include_directories(node_common PUBLIC ${CPP_SOURCES_DIR})
 
 set(CMAKE_CXX_FLAGS_DEBUG_INIT "${CMAKE_CXX_FLAGS_DEBUG_INIT}" "Zl")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /INCREMENTAL /EDITANDCONTINUE")
-
- 
 set_target_properties(node_common PROPERTIES LINKER_LANGUAGE CXX)

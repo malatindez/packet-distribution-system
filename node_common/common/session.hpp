@@ -16,9 +16,9 @@
 
 #include "packet.hpp"
 #include "backoffs.hpp"
-#include "../crypto/aes.hpp"
-#include "../utils/utils.hpp"
-#include "../../include/spdlog.hpp"
+#include "crypto/aes.hpp"
+#include "utils/utils.hpp"
+#include "../include/spdlog.hpp"
 
 namespace node_system
 {
@@ -213,7 +213,7 @@ namespace node_system
                         co_await timer.async_wait(boost::asio::use_awaitable);
                         backoff.increase_delay();
                     }
-                    if (static_cast<int64_t>(buffer_.size()) < packet_size) // alive_ is false, we won't get any data anymore
+                    if (static_cast<int64_t>(buffer_.size()) < packet_size) // alive_ is false from while loop, we won't get any data anymore
                     {
                         spdlog::warn("The packet size is bigger than the buffer size");
                         break;
