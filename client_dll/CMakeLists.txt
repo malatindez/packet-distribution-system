@@ -16,6 +16,8 @@ foreach(_source IN ITEMS ${CLIENT_DLL_SOURCES})
 endforeach()
 
 add_library(client_dll SHARED ${CLIENT_DLL_SOURCES})
+target_link_libraries(client_dll PUBLIC node_common)
+target_include_directories(client_dll PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/node_common)
 target_include_directories(client_dll PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/third_party/boost)
 
 set(CMAKE_CXX_FLAGS_DEBUG_INIT "${CMAKE_CXX_FLAGS_DEBUG_INIT}" "Zl")
