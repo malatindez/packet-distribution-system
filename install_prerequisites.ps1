@@ -78,6 +78,6 @@ function Unzip
 
 # Call the function
 Unzip $output 'third_party'
-Remove-Item $output
+Remove-Item $zipfile
 $oldFolder = Get-Item '.\third_party\boost_*' # Adjust the path as necessary
 Rename-Item -Path $oldFolder[0].FullName -NewName 'boost'
