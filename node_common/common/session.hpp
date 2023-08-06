@@ -157,7 +157,7 @@ namespace node_system
         {
             bool writing = false;
             ByteArray data_to_send;
-            data_to_send.reserve(1024 * 128);
+            data_to_send.reserve(1024 * 1024 * 8);
             
             ExponentialBackoffUs backoff(std::chrono::microseconds(1), std::chrono::microseconds(1000 * 100), 2, 0.1);
             while (alive_)
@@ -168,7 +168,7 @@ namespace node_system
                     {
                         std::unique_lock lock{ packets_to_send_mutex_ };
                         data_to_send.clear();
-                        for (int i = 0; (i < 1000 || data_to_send.size() > 1024 * 128) && !packets_to_send_.empty(); i++)
+                        for (int i = 0; (i < 1000 && data_to_send.size() < 1024 * 1024) && !packets_to_send_.empty(); i++)
                         {
                             ByteView packet = packets_to_send_.front();
                             data_to_send.append(uint32_to_bytes(static_cast<uint32_t>(packet.size())));
@@ -204,15 +204,8 @@ namespace node_system
                     ByteArray packet_size_data;
                     read_bytes_to(packet_size_data, 4);
                     const int64_t packet_size = bytes_to_uint32(packet_size_data);
-                    try
-                    {
-                        utils::AlwaysAssert(packet_size != 0 && packet_size < 1024 * 1024 * 8, "The amount of bytes to read is too big");
-                    }
-                    catch(const std::exception& e)
-                    {
-                        spdlog::warn("{}", e.what());
-                        break;
-                    }
+                    // TODO: handle exception, and if packet size is too big we need to do something about it.
+                    utils::AlwaysAssert(packet_size != 0 && packet_size < 1024 * 1024 * 8, "The amount of bytes to read is too big");                    
                     
                     while (static_cast<int64_t>(buffer_.size()) < packet_size && alive_)
                     {
