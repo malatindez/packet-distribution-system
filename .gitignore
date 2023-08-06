@@ -1,4 +1,3 @@
-third_party/boost
 # Prerequisites
 *.d
 
@@ -431,3 +430,4 @@ FodyWeavers.xsd
 *.sln.iml
 
 build
+third_party/boost*
