@@ -1,10 +1,14 @@
 #pragma once
-#include "packet.hpp"
-namespace node_system
+#include "../packet.hpp"
+namespace node_system::packet::network
 {
+    constexpr PacketID PingID = 0x0000;
+    constexpr PacketID PongID = 0x0001;
+    constexpr PacketID MessageID = 0x0002;
+
     class PingPacket : public DerivedPacket<class PingPacket> {
     public:
-        static constexpr uint32_t static_type = static_cast<uint32_t>(NetworkPacketType::PING);
+        static constexpr UniquePacketID static_type = CreatePacketID(PacketSubsystemNetwork, PingID);
         [[nodiscard]] Permission get_permission() const override { return Permission::ANY; }
 
     private:
@@ -17,7 +21,7 @@ namespace node_system
 
     class PongPacket : public DerivedPacket<class PongPacket> {
     public:
-        static constexpr uint32_t static_type = static_cast<uint32_t>(NetworkPacketType::PONG);
+        static constexpr UniquePacketID static_type = CreatePacketID(PacketSubsystemNetwork, PongID);
         [[nodiscard]] Permission get_permission() const override { return Permission::ANY; }
 
     private:
@@ -30,7 +34,7 @@ namespace node_system
     
     class MessagePacket : public DerivedPacket<class MessagePacket> {
     public:
-        static constexpr uint32_t static_type = static_cast<uint32_t>(NetworkPacketType::MESSAGE);
+        static constexpr UniquePacketID static_type = CreatePacketID(PacketSubsystemNetwork, MessageID);
         [[nodiscard]] Permission get_permission() const override { return Permission::ANY; }
         std::string message;
     private:
@@ -42,19 +46,4 @@ namespace node_system
         }
     };
 
-    template <>
-    class PacketFactorySubsystem<PacketSubsystemType::NETWORK> {
-    public:
-        static std::unique_ptr<Packet> deserialize(ByteView buffer, uint32_t packet_type) {
-            switch (static_cast<NetworkPacketType>(packet_type)) {
-            case NetworkPacketType::PING:
-                return DerivedPacket<PingPacket>::deserialize(buffer);
-            case NetworkPacketType::PONG:
-                return DerivedPacket<PongPacket>::deserialize(buffer);
-            case NetworkPacketType::MESSAGE:
-                return DerivedPacket<MessagePacket>::deserialize(buffer);
-            }
-            return nullptr;
-        }
-    };
 }

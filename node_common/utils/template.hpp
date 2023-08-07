@@ -65,8 +65,11 @@ namespace utils
         }
         return rv;
     }
+    
+    template<typename T>
+    concept EnumClassConcept = std::is_enum_v<T> && !std::convertible_to<T, int>;
 
-    template <typename Enumeration>
+    template <EnumClassConcept Enumeration>
     constexpr auto as_integer(Enumeration const value)
         -> typename std::underlying_type<Enumeration>::type
     {

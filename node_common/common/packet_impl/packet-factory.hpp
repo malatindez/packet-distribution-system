@@ -1,46 +1,48 @@
 #pragma once
-#include "packet-common.hpp"
-#include "packet-crypto.hpp"
-#include "packet-node.hpp"
-#include "packet-network.hpp"
-#include "packet-system.hpp"
-namespace node_system
+#include "packet.hpp"
+#include "packets/packet-crypto.hpp"
+#include "packets/packet-node.hpp"
+#include "packets/packet-network.hpp"
+#include "packets/packet-system.hpp"
+
+namespace node_system::packet
 {
-    using SubsystemFactoryFunc = std::function<std::unique_ptr<Packet>(const ByteView&, uint32_t)>;
     class PacketFactory {
     public:
-        static void RegisterSubsystemFactory(PacketSubsystemType type, SubsystemFactoryFunc factory) {
-            subsystemFactories[type] = factory;
+        template<typename PacketType>
+        static void RegisterDeserializer() requires std::is_base_of_v<Packet, PacketType>
+        {
+            packet_deserializers_[PacketType::static_type] = PacketType::deserialize;
+        }
+        static void RegisterDeserializer(UniquePacketID packet_id, PacketDeserializeFunc const &factory) {
+            packet_deserializers_[packet_id] = factory;
         }
         
-        static std::unique_ptr<Packet> Deserialize(const ByteView& bytearray, uint32_t packet_type) {
-            PacketSubsystemType subsystem = Uint32ToPacketSubsystemType(packet_type);
-            auto it = subsystemFactories.find(subsystem);
-            if (it != subsystemFactories.end()) {
-                return it->second(bytearray, packet_type); 
+        static std::unique_ptr<Packet> Deserialize(const ByteView& bytearray, UniquePacketID packet_type) {
+            auto it = packet_deserializers_.find(packet_type);
+            if (it != packet_deserializers_.end()) {
+                return it->second(bytearray); 
             }
             return nullptr;
         }
-        static void Initialize()
+
+        static void InitializeBasePackets()
         {
-            RegisterSubsystemFactory(
-                PacketSubsystemType::CRYPTO,
-                PacketFactorySubsystem<PacketSubsystemType::CRYPTO>::deserialize
-            );
-            RegisterSubsystemFactory(
-                PacketSubsystemType::NODE,
-                PacketFactorySubsystem<PacketSubsystemType::NODE>::deserialize
-            );
-            RegisterSubsystemFactory(
-                PacketSubsystemType::NETWORK,
-                PacketFactorySubsystem<PacketSubsystemType::NETWORK>::deserialize
-            );
-            RegisterSubsystemFactory(
-                PacketSubsystemType::SYSTEM,
-                PacketFactorySubsystem<PacketSubsystemType::SYSTEM>::deserialize
-            );
+            using namespace node_system::packet::crypto;
+            using namespace node_system::packet::network;
+            using namespace node_system::packet::node;
+            using namespace node_system::packet::system;
+            RegisterDeserializer<DHKeyExchangeRequestPacket>();
+            RegisterDeserializer<DHKeyExchangeResponsePacket>();
+            RegisterDeserializer<PingPacket>();
+            RegisterDeserializer<PongPacket>();
+            RegisterDeserializer<MessagePacket>();
+            RegisterDeserializer<NodeInfoRequestPacket>();
+            RegisterDeserializer<NodeInfoResponsePacket>();
+            RegisterDeserializer<SystemInfoRequestPacket>();
+            RegisterDeserializer<SystemInfoResponsePacket>();
         }
     private:
-        static std::unordered_map<PacketSubsystemType, SubsystemFactoryFunc> subsystem_factories_;
+        static std::unordered_map<UniquePacketID, PacketDeserializeFunc> packet_deserializers_;
     };
 }

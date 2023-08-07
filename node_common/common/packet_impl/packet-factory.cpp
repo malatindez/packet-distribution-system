@@ -1,6 +1,6 @@
 #include "packet-factory.hpp"
 
-namespace node_system
+namespace node_system::packet
 {
-    std::map<PacketSubsystemType, SubsystemFactoryFunc> PacketFactory::subsystemFactories;
+    std::unordered_map<UniquePacketID, PacketDeserializer> PacketFactory::packet_deserializers_;
 }
