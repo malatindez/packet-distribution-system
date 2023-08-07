@@ -5,8 +5,8 @@
 #include <boost/program_options/variables_map.hpp>
 #include <iostream>
 #include <filesystem>
-#include "core/utils/utils.hpp"
-#include "core/crypto/ecdsa.hpp"
+#include "utils/utils.hpp"
+#include "crypto/ecdsa.hpp"
 
 
 namespace po = boost::program_options;

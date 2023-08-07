@@ -2,6 +2,7 @@ set(CPP_SOURCES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/server_test")
 file(GLOB_RECURSE CPP_SOURCES ${CPP_SOURCES_DIR} *.*)
 list(FILTER CPP_SOURCES INCLUDE REGEX ${CPP_SOURCES_DIR}/*)
 set(SERVER_TEST_SOURCES ${CPP_SOURCES})
+set(PROJECT_NAME server_test)
 
 foreach(_source IN ITEMS ${SERVER_TEST_SOURCES})
   if(IS_ABSOLUTE "${_source}")
@@ -15,12 +16,33 @@ foreach(_source IN ITEMS ${SERVER_TEST_SOURCES})
   source_group("${_source_path_msvc}" FILES "${_source}")
 endforeach()
 
-add_executable(server_test ${SERVER_TEST_SOURCES})
+add_executable(${PROJECT_NAME} ${SERVER_TEST_SOURCES})
 
-target_include_directories(server_test PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/server_test)
-target_link_libraries(server_test PRIVATE server_dll)
+target_link_libraries(${PROJECT_NAME} PRIVATE server_dll)
 
-add_custom_command(TARGET server_test POST_BUILD
+file(WRITE "${CMAKE_BINARY_DIR}/${PROJECT_NAME}.vcxproj.user" "\
+<?xml version=\"1.0\" encoding=\"utf-8\"?> \ 
+<Project ToolsVersion=\"Current\" xmlns=\"http://schemas.microsoft.com/developer/msbuild/2003\"> \ 
+  <PropertyGroup Condition=\"'$(Configuration)|$(Platform)'=='Debug|x64'\"> \ 
+    <LocalDebuggerWorkingDirectory>$(ProjectDir)..\\runtime_directory\\</LocalDebuggerWorkingDirectory> \ 
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor> \ 
+  </PropertyGroup> \ 
+  <PropertyGroup Condition=\"'$(Configuration)|$(Platform)'=='MinSizeRel|x64'\"> \ 
+    <LocalDebuggerWorkingDirectory>$(ProjectDir)..\\runtime_directory\\</LocalDebuggerWorkingDirectory> \ 
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor> \ 
+  </PropertyGroup> \ 
+  <PropertyGroup Condition=\"'$(Configuration)|$(Platform)'=='Release|x64'\"> \ 
+    <LocalDebuggerWorkingDirectory>$(ProjectDir)..\\runtime_directory\\</LocalDebuggerWorkingDirectory> \ 
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor> \ 
+  </PropertyGroup> \ 
+  <PropertyGroup Condition=\"'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'\"> \ 
+    <LocalDebuggerWorkingDirectory>$(ProjectDir)..\\runtime_directory\\</LocalDebuggerWorkingDirectory> \ 
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor> \ 
+  </PropertyGroup> \ 
+</Project> \ 
+")
+
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
     "$<TARGET_FILE:server_dll>"
     "$<TARGET_FILE_DIR:server_test>"

@@ -2,6 +2,7 @@ set(CPP_SOURCES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/server_dll")
 file(GLOB_RECURSE CPP_SOURCES ${CPP_SOURCES_DIR} *.*)
 list(FILTER CPP_SOURCES INCLUDE REGEX ${CPP_SOURCES_DIR}/*)
 set(SERVER_DLL_SOURCES ${CPP_SOURCES})
+set(PROJECT_NAME server_dll)
 
 foreach(_source IN ITEMS ${SERVER_DLL_SOURCES})
   if(IS_ABSOLUTE "${_source}")
@@ -15,13 +16,14 @@ foreach(_source IN ITEMS ${SERVER_DLL_SOURCES})
   source_group("${_source_path_msvc}" FILES "${_source}")
 endforeach()
 
-add_library(server_dll SHARED ${SERVER_DLL_SOURCES})
-target_link_libraries(server_dll PUBLIC node_common)
-target_include_directories(server_dll PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/node_common)
-target_include_directories(server_dll PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/third_party/boost)
+add_library(${PROJECT_NAME} SHARED ${SERVER_DLL_SOURCES})
+target_link_libraries(${PROJECT_NAME} PUBLIC node_common)
+target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/node_common)
+target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/third_party/boost)
 
 set(CMAKE_CXX_FLAGS_DEBUG_INIT "${CMAKE_CXX_FLAGS_DEBUG_INIT}" "Zl")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /INCREMENTAL /EDITANDCONTINUE")
 
-target_compile_definitions(server_dll PUBLIC SERVER_DLL_EXPORTS)
-set_target_properties(server_dll PROPERTIES LINKER_LANGUAGE CXX)
+target_compile_definitions(${PROJECT_NAME} PUBLIC SERVER_DLL_EXPORTS)
+
+set_target_properties(${PROJECT_NAME} PROPERTIES LINKER_LANGUAGE CXX)

@@ -1,17 +1,18 @@
 set(LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party")
 
 set(SPDLOG_DIR "${LIB_DIR}/spdlog")
-set(BOOST_DIR "${LIB_DIR}/boost")
 set(GTEST_DIR "${LIB_DIR}/google/google_test")
+
+find_package(Boost REQUIRED COMPONENTS system thread filesystem program_options date_time serialization regex HINTS "
+  C:/" 
+  "C:/Boost" 
+  "${CMAKE_CURRENT_SOURCE_DIR}/third_party/boost")
 
 # spdlog
 add_subdirectory("${SPDLOG_DIR}" EXCLUDE_FROM_ALL)
 
 set(OPENSSL_USE_STATIC_LIBS TRUE)
 find_package(OpenSSL REQUIRED)
-
-set(Boost_USE_STATIC_LIBS ON)
-add_subdirectory("${BOOST_DIR}")
 
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 add_subdirectory("${GTEST_DIR}" EXCLUDE_FROM_ALL)
@@ -30,12 +31,12 @@ function(target_add_gtest TARGET)
 endfunction(target_add_gtest)
 
 function(target_add_spdlog TARGET)
-  target_include_directories("${TARGET}" PRIVATE "${SPDLOG_DIR}/include")
+  target_include_directories("${TARGET}" PUBLIC "${SPDLOG_DIR}/include")
 endfunction(target_add_spdlog)
 
 function(target_add_openssl TARGET)
   if(OPENSSL_FOUND)
-    target_include_directories("${TARGET}" PRIVATE "${OPENSSL_INCLUDE_DIR}")
+    target_include_directories("${TARGET}" PUBLIC "${OPENSSL_INCLUDE_DIR}")
     target_link_libraries("${TARGET}" PUBLIC OpenSSL::Crypto)
   else()
     message(FATAL_ERROR "OpenSSL not found")
@@ -43,7 +44,8 @@ function(target_add_openssl TARGET)
 endfunction(target_add_openssl)
 
 function(target_add_boost TARGET)
-  target_include_directories("${TARGET}" PUBLIC BOOST_DIR)
+  target_include_directories("${TARGET}" PUBLIC ${Boost_INCLUDE_DIRS})
+  target_link_libraries("${TARGET}" PUBLIC ${Boost_LIBRARIES})
 endfunction(target_add_boost)
 
 function(target_add_libraries TARGET)

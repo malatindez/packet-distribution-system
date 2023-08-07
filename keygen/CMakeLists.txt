@@ -20,14 +20,13 @@ foreach(_source IN ITEMS ${KEYGEN_SOURCES})
 endforeach()
 ENDIF()
 
-add_executable(${PROJECT_NAME} ${KEYGEN_SOURCES} ${NODE_SYSTEM_SOURCES})
+add_executable(${PROJECT_NAME} ${KEYGEN_SOURCES})
 target_include_directories(${PROJECT_NAME} PRIVATE ${KEYGEN_SOURCES_DIR})
-target_include_directories(${PROJECT_NAME} PRIVATE ${NODE_SYSTEM_SOURCES_DIR})
+target_include_directories(${PROJECT_NAME} PRIVATE ${NODE_COMMON_SOURCES_DIR})
 set(CMAKE_CXX_FLAGS_DEBUG_INIT "${CMAKE_CXX_FLAGS_DEBUG_INIT}" "Zl")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /INCREMENTAL /EDITANDCONTINUE")
 
-target_link_libraries(${PROJECT_NAME} node_system)
-#target_precompile_headers(${PROJECT_NAME} PRIVATE "${NODE_SYSTEM_SOURCES_DIR}/include/library-pch.hpp")
+target_link_libraries(${PROJECT_NAME} node_common)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES LINKER_LANGUAGE CXX)
 file(WRITE "${CMAKE_BINARY_DIR}/${PROJECT_NAME}.vcxproj.user" "\
