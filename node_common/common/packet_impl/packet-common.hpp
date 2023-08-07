@@ -10,15 +10,10 @@ namespace node_system
     // Subsystem where to redirect the packet
     enum class PacketSubsystemType : uint32_t
     {
-        // Crypto
         CRYPTO = 0x0001UL << 16,
-        // Node
         NODE = 0x0002UL << 16,
-        // Network
         NETWORK = 0x0003UL << 16,
-        // System
         SYSTEM = 0x0004UL << 16,
-        // Unknown
         UNKNOWN = 0x0005UL << 16
     };
 
