@@ -56,13 +56,17 @@ function Unzip
         foreach ($entry in $archive.Entries) {
             $destinationPath = [System.IO.Path]::Combine($outpath, $entry.FullName)
 
-            # Create parent directory regardless of whether it's a file or a directory
-            $parent = [System.IO.Directory]::GetParent($destinationPath)
-            if (!(Test-Path $parent)) {
-                New-Item -ItemType Directory -Force -Path $parent.FullName | Out-Null
+            if ($entry.FullName.EndsWith("/")) { # It's a directory
+                if (!(Test-Path -Path $destinationPath)) {
+                    New-Item -ItemType Directory -Force -Path $destinationPath | Out-Null
+                }
             }
+            else { # It's a file
+                $parent = [System.IO.Path]::GetDirectoryName($destinationPath)
+                if (!(Test-Path -Path $parent)) {
+                    New-Item -ItemType Directory -Force -Path $parent | Out-Null
+                }
 
-            if (!$entry.FullName.EndsWith("/")) { # If it's a file, extract it
                 $fileCounter++
                 Write-Progress -Id 1 -Activity "Extracting Files" -Status "$fileCounter of $totalFiles" -PercentComplete (($fileCounter / $totalFiles) * 100)
                 [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $destinationPath, $true)
@@ -76,8 +80,7 @@ function Unzip
 }
 
 
-# Call the function
 Unzip $output 'third_party'
-Remove-Item $zipfile
+Remove-Item -Path $output
 $oldFolder = Get-Item '.\third_party\boost_*' # Adjust the path as necessary
 Rename-Item -Path $oldFolder[0].FullName -NewName 'boost'
