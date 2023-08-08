@@ -1,13 +1,14 @@
 #pragma once
-#include "../packet.hpp"
+#include "../common/packet.hpp"
 namespace node_system::packet::system
 {
-    constexpr PacketID SystemInfoRequestID = 0x0000;
-    constexpr PacketID SystemInfoResponseID = 0x0001;
+    constexpr UniquePacketID SystemInfoRequestPacketID = CreatePacketID(PacketSubsystemSystem, 0x0000);
+    constexpr UniquePacketID SystemInfoResponsePacketID = CreatePacketID(PacketSubsystemSystem, 0x0001);
     
     class SystemInfoRequestPacket : public DerivedPacket<class SystemInfoRequestPacket> {
     public:
-        static constexpr uint32_t static_type = CreatePacketID(PacketSubsystemSystem, SystemInfoRequestID);
+        static constexpr UniquePacketID static_type = SystemInfoRequestPacketID;
+        static constexpr float time_to_live = 5.0f;
         [[nodiscard]] Permission get_permission() const override { return Permission::L2_CORE_NODE; }
         // TODO:
         // implement
@@ -21,7 +22,8 @@ namespace node_system::packet::system
 
     class SystemInfoResponsePacket : public DerivedPacket<class SystemInfoResponsePacket> {
     public:
-        static constexpr uint32_t static_type = CreatePacketID(PacketSubsystemSystem, SystemInfoResponseID);
+        static constexpr UniquePacketID static_type = SystemInfoResponsePacketID;
+        static constexpr float time_to_live = 5.0f;
         [[nodiscard]] Permission get_permission() const override { return Permission::L2_CORE_NODE; }
         // TODO:
         // implement

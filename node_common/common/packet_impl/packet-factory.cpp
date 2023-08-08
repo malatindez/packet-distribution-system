@@ -2,5 +2,5 @@
 
 namespace node_system::packet
 {
-    std::unordered_map<UniquePacketID, PacketDeserializer> PacketFactory::packet_deserializers_;
+    std::unordered_map<UniquePacketID, PacketDeserializeFunc> PacketFactory::packet_deserializers_;
 }

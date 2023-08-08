@@ -1,15 +1,18 @@
 #pragma once
-#include "../packet.hpp"
-#include "../core/crypto/common.hpp"
-#include "../core/crypto/sha.hpp"
+#include "../common/packet.hpp"
+#include "../crypto/common.hpp"
+#include "../crypto/sha.hpp"
+#include <boost/endian/conversion.hpp>
+
 namespace node_system::packet::crypto
 {
-    constexpr PacketID DHKeyExchangeRequestPacketID = 0x0000;
-    constexpr PacketID DHKeyExchangeResponsePacketID = 0x0001;
+    constexpr UniquePacketID DHKeyExchangeRequestPacketID = CreatePacketID(PacketSubsystemCrypto, 0x0000);
+    constexpr UniquePacketID DHKeyExchangeResponsePacketID = CreatePacketID(PacketSubsystemCrypto, 0x0001);
 
     class DHKeyExchangeRequestPacket : public DerivedPacket<class DHKeyExchangeRequestPacket> {
     public:
-        static constexpr UniquePacketID static_type = CreatePacketID(PacketSubsystemCrypto, DHKeyExchangeRequestPacketID);
+        static constexpr UniquePacketID static_type = DHKeyExchangeRequestPacketID;
+        static constexpr float time_to_live = 120.0f;
         [[nodiscard]] Permission get_permission() const override { return Permission::ANY; }
 
         ByteArray public_key;
@@ -25,13 +28,14 @@ namespace node_system::packet::crypto
 
     class DHKeyExchangeResponsePacket : public DerivedPacket<class DHKeyExchangeResponsePacket> {
     public:
-        static constexpr UniquePacketID static_type = CreatePacketID(PacketSubsystemCrypto, DHKeyExchangeResponsePacketID);
+        static constexpr UniquePacketID static_type = DHKeyExchangeResponsePacketID;
+        static constexpr float time_to_live = 120.0f;
         [[nodiscard]] Permission get_permission() const override { return Permission::ANY; }
-        [[nodiscard]] crypto::Hash get_hash() const
+        [[nodiscard]] node_system::crypto::Hash get_hash() const
         {
             ByteArray arr;
             arr.append(public_key, salt, ByteArray::from_integral(boost::endian::little_to_native(static_type)));
-            return crypto::SHA::ComputeHash(arr, crypto::Hash::HashType::SHA256);
+            return node_system::crypto::SHA::ComputeHash(arr, node_system::crypto::Hash::HashType::SHA256);
         }
 
         ByteArray public_key;
