@@ -11,7 +11,7 @@
 
 namespace node_system::crypto::SHA
 {
-    Hash ComputeHash(const ByteView data, const Hash::HashType hash_type)
+    [[nodiscard]] inline Hash ComputeHash(const ByteView data, const Hash::HashType hash_type)
     {
         ByteArray result;
         switch (hash_type)
