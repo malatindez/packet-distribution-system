@@ -9,10 +9,12 @@ namespace node_system
         ExponentialBackoff(ChronoType initial_delay, 
                         ChronoType max_delay,
                         double multiplier = 2.0, 
+                        double divisor = 2.0,
                         double jitter_factor = 0.2)
             : initial_delay_(initial_delay),
             max_delay_(max_delay),
             multiplier_(multiplier),
+            divisor_(divisor),
             jitter_factor_(jitter_factor),
             current_delay_(initial_delay),
             uniform_dist_(0.0, 1.0),
@@ -27,6 +29,10 @@ namespace node_system
             current_delay_ = std::min(std::chrono::duration_cast<ChronoType>(current_delay_ * multiplier_), max_delay_);
         }
 
+        void decrease_delay() {
+            current_delay_ = std::max(std::chrono::duration_cast<ChronoType>(current_delay_ / divisor_), initial_delay_);
+        }
+        
         void reset_delay() {
             current_delay_ = initial_delay_;
         }
@@ -36,6 +42,7 @@ namespace node_system
         const ChronoType initial_delay_;
         const ChronoType max_delay_;
         const double multiplier_;
+        const double divisor_;
         // Randomizing the backoff delay by a certain percentage can prevent synchronized retries from multiple nodes (the thundering herd problem).
         const double jitter_factor_;
         ChronoType current_delay_;
@@ -59,6 +66,9 @@ namespace node_system
 
         void increase_delay() {
             current_delay_ = std::min(current_delay_ + step_, max_delay_);
+        }
+        void decrease_delay() {
+            current_delay_ = std::max(current_delay_ - step_, initial_delay_);
         }
 
         void reset_delay() {
