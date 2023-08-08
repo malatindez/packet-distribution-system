@@ -3,7 +3,10 @@ cmake_minimum_required(VERSION 3.21)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-project(TradeCopy LANGUAGES CXX)
+project(packet-distribution-system LANGUAGES CXX)
+
+add_definitions(-DCMAKE_EXPORT_COMPILE_COMMANDS=ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Rpass=inline -Winline -W4")
@@ -50,13 +53,51 @@ if(MSVC)
   add_compile_options("$<$<CONFIG:MinSizeRel>:/GT>")
   
   add_compile_options("$<$<CONFIG:Debug>:/fp:precise>") 
-  add_compile_options(/permissive)
+
+  add_compile_options(/W4 /WX)
+
 endif()
+
+function(target_set_output_directory TARGET)
+file(WRITE "${CMAKE_BINARY_DIR}/${TARGET}.vcxproj.user" "\
+<?xml version=\"1.0\" encoding=\"utf-8\"?> \ 
+<Project ToolsVersion=\"Current\" xmlns=\"http://schemas.microsoft.com/developer/msbuild/2003\"> \ 
+  <PropertyGroup Condition=\"'$(Configuration)|$(Platform)'=='Debug|x64'\"> \ 
+    <LocalDebuggerWorkingDirectory>$(ProjectDir)..\\runtime_directory\\</LocalDebuggerWorkingDirectory> \ 
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor> \ 
+  </PropertyGroup> \ 
+  <PropertyGroup Condition=\"'$(Configuration)|$(Platform)'=='MinSizeRel|x64'\"> \ 
+    <LocalDebuggerWorkingDirectory>$(ProjectDir)..\\runtime_directory\\</LocalDebuggerWorkingDirectory> \ 
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor> \ 
+  </PropertyGroup> \ 
+  <PropertyGroup Condition=\"'$(Configuration)|$(Platform)'=='Release|x64'\"> \ 
+    <LocalDebuggerWorkingDirectory>$(ProjectDir)..\\runtime_directory\\</LocalDebuggerWorkingDirectory> \ 
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor> \ 
+  </PropertyGroup> \ 
+  <PropertyGroup Condition=\"'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'\"> \ 
+    <LocalDebuggerWorkingDirectory>$(ProjectDir)..\\runtime_directory\\</LocalDebuggerWorkingDirectory> \ 
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor> \ 
+  </PropertyGroup> \ 
+</Project> \ 
+")
+
+set_target_properties(${TARGET} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${BINARY_OUTPUT_DIR})
+
+# copy the executable to the runtime directory
+add_custom_command(TARGET ${TARGET} POST_BUILD 
+  COMMAND "${CMAKE_COMMAND}" -E copy
+     "$<TARGET_FILE:${TARGET}>"
+     "${CMAKE_CURRENT_SOURCE_DIR}/runtime_directory/$<TARGET_FILE_NAME:${TARGET}>" 
+  COMMENT "Copying the executable to output directory"
+)
+
+endfunction()
 
 make_directory(${CMAKE_BINARY_DIR}/binary)
 set(BINARY_OUTPUT_DIR ${CMAKE_BINARY_DIR}/binary)
 include("${CMAKE_CURRENT_SOURCE_DIR}/third_party/CMakeLists.txt")
 include("${CMAKE_CURRENT_SOURCE_DIR}/node_common/CMakeLists.txt")
+include("${CMAKE_CURRENT_SOURCE_DIR}/central_server/CMakeLists.txt")
 include("${CMAKE_CURRENT_SOURCE_DIR}/server_dll/CMakeLists.txt")
 include("${CMAKE_CURRENT_SOURCE_DIR}/client_dll/CMakeLists.txt")
 include("${CMAKE_CURRENT_SOURCE_DIR}/server_test/CMakeLists.txt")

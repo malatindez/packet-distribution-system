@@ -20,30 +20,5 @@ add_executable(${PROJECT_NAME} ${SERVER_TEST_SOURCES})
 
 target_link_libraries(${PROJECT_NAME} PRIVATE server_dll)
 
-file(WRITE "${CMAKE_BINARY_DIR}/${PROJECT_NAME}.vcxproj.user" "\
-<?xml version=\"1.0\" encoding=\"utf-8\"?> \ 
-<Project ToolsVersion=\"Current\" xmlns=\"http://schemas.microsoft.com/developer/msbuild/2003\"> \ 
-  <PropertyGroup Condition=\"'$(Configuration)|$(Platform)'=='Debug|x64'\"> \ 
-    <LocalDebuggerWorkingDirectory>$(ProjectDir)..\\runtime_directory\\</LocalDebuggerWorkingDirectory> \ 
-    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor> \ 
-  </PropertyGroup> \ 
-  <PropertyGroup Condition=\"'$(Configuration)|$(Platform)'=='MinSizeRel|x64'\"> \ 
-    <LocalDebuggerWorkingDirectory>$(ProjectDir)..\\runtime_directory\\</LocalDebuggerWorkingDirectory> \ 
-    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor> \ 
-  </PropertyGroup> \ 
-  <PropertyGroup Condition=\"'$(Configuration)|$(Platform)'=='Release|x64'\"> \ 
-    <LocalDebuggerWorkingDirectory>$(ProjectDir)..\\runtime_directory\\</LocalDebuggerWorkingDirectory> \ 
-    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor> \ 
-  </PropertyGroup> \ 
-  <PropertyGroup Condition=\"'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'\"> \ 
-    <LocalDebuggerWorkingDirectory>$(ProjectDir)..\\runtime_directory\\</LocalDebuggerWorkingDirectory> \ 
-    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor> \ 
-  </PropertyGroup> \ 
-</Project> \ 
-")
 
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    "$<TARGET_FILE:server_dll>"
-    "$<TARGET_FILE_DIR:server_test>"
-)
+target_set_output_directory(${PROJECT_NAME})

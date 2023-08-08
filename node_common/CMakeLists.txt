@@ -22,3 +22,5 @@ target_include_directories(node_common PUBLIC ${NODE_COMMON_SOURCES_DIR})
 set(CMAKE_CXX_FLAGS_DEBUG_INIT "${CMAKE_CXX_FLAGS_DEBUG_INIT}" "Zl")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /INCREMENTAL /EDITANDCONTINUE")
 set_target_properties(node_common PROPERTIES LINKER_LANGUAGE CXX)
+
+target_set_output_directory(node_common)

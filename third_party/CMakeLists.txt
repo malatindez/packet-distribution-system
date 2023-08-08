@@ -3,7 +3,7 @@ set(LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party")
 set(SPDLOG_DIR "${LIB_DIR}/spdlog")
 set(GTEST_DIR "${LIB_DIR}/google/google_test")
 
-find_package(Boost REQUIRED COMPONENTS system thread filesystem program_options date_time serialization regex HINTS "
+find_package(Boost REQUIRED COMPONENTS system thread filesystem program_options date_time serialization regex context coroutine HINTS "
   C:/" 
   "C:/Boost" 
   "${CMAKE_CURRENT_SOURCE_DIR}/third_party/boost")
