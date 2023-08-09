@@ -9,6 +9,10 @@ namespace node_system
 
         co_spawn(socket_.get_executor(), std::bind(&Session::async_packet_forger, this, std::ref(io)), boost::asio::detached);
         co_spawn(socket_.get_executor(), std::bind(&Session::send_all, this, std::ref(io)), boost::asio::detached);
+        for(size_t i = 0; i < 4; i++)
+        {
+            co_spawn(socket_.get_executor(), std::bind(&Session::async_packet_sender, this, std::ref(io)), boost::asio::detached);
+        }
         //            co_spawn(socket_.get_executor(), std::bind(&Session::read_all, this), boost::asio::detached);
         if (alive_ = socket_.is_open();
             alive_)
