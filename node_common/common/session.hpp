@@ -25,7 +25,7 @@
 
 namespace node_system
 {
-    using PacketReceiverFn = std::function<boost::asio::awaitable<void>(ByteArray)>;
+    using PacketReceiverFn = std::function<boost::asio::awaitable<void>(std::unique_ptr<ByteArray> &&)>;
     /**
      * @brief To correctly destroy this object you need to call Destroy function, because coroutines share the object from this.
      */
@@ -33,10 +33,34 @@ namespace node_system
     {
     public:
         explicit Session(boost::asio::io_context& io, boost::asio::ip::tcp::socket&& socket);
-        virtual ~Session() = default;
+        virtual ~Session()
+        {
+            packets_to_send_.consume_all([](ByteArray *value){ if (value != nullptr)  delete value; });
+            received_packets_.consume_all([](ByteArray *value){ if (value != nullptr) delete value; });
+        }
 
         template<typename T>
-        bool send_packet(const T& packet_arg) requires std::is_base_of_v<Packet, T>;
+        bool send_packet(const T& packet_arg) requires std::is_base_of_v<Packet, T>
+        {
+            if (!alive_)
+            {
+                spdlog::warn("Session is closed, cannot send packet");
+                return false;
+            }
+            const auto& packet = static_cast<const Packet&>(packet_arg);
+            ByteArray buffer = ByteArray{ uint32_to_bytes(packet.type) };
+            packet.serialize(buffer);
+            if (aes_)
+            {
+                buffer = encrypt(buffer);
+            }
+
+            while (!packets_to_send_.push(new ByteArray{ std::move(buffer) }) || !alive_)
+            {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+            return true;
+        }
         /**
          * @brief Returns the earliest acquired packet. If packet queue is empty, returns nullptr.
          * 
@@ -75,14 +99,15 @@ namespace node_system
             packet_receiver_ = receiver;
         }
         /**
-         * @brief Coroutines lock the shared ptr from this, so you need to explicitly call Destroy so alive_ is false. This way coroutines can end.
-         * 
+         * @brief Coroutines use the shared pointer from this, so you need to explicitly call Destroy so alive_ is false. 
+         * This way coroutines can end and unlock the remaining instances of shared_ptr.
          */
         void Destroy() { alive_ = false; }
 
     protected:
-        std::optional<ByteArray> pop_packet_data() noexcept;
+        std::unique_ptr<ByteArray> pop_packet_data() noexcept;
     private:
+        boost::asio::awaitable<std::shared_ptr<Session>> get_shared_ptr(boost::asio::io_context& io);
         void receive_all();
         boost::asio::awaitable<void> send_all(boost::asio::io_context& io);
         boost::asio::awaitable<void> async_packet_forger(boost::asio::io_context& io);
@@ -105,24 +130,57 @@ namespace node_system
             *byte_array.as<uint32_t>() = boost::endian::native_to_little(value);
             return byte_array;
         }
-
+        /**
+         * @brief Public method to encrypt bytearray using locally stored AES256 pointer.
+         * 
+         * @note will throw if aes_ is nullptr
+         * 
+         * @param data input plaintext
+         * @return ByteArray output ciphertext
+         */
         [[nodiscard]] ByteArray encrypt(const ByteArray& data) const
         {
             return aes_->encrypt(data);
         }
-
+        /**
+         * @brief Public method to decrypt bytearray using locally stored AES256 pointer.
+         * 
+         * @note will throw if aes_ is nullptr
+         * 
+         * @param data input ciphertext
+         * @return ByteArray output plaintext
+         */
         [[nodiscard]] ByteArray decrypt(const ByteArray& data) const
         {
             return aes_->decrypt(data);
         }
-
-        boost::lockfree::queue<ByteArray, boost::lockfree::fixed_sized<true>> received_packets_;
-        boost::lockfree::queue<ByteArray, boost::lockfree::fixed_sized<true>> packets_to_send_;
+        /**
+         * @brief Packets stored in this structure should be created using new
+         * After popping the pointer you can either delete it, or wrap in smart pointers.
+         * Either way before pushing you should release the smart pointer, because otherwise it would lead to undefined behaviour.
+         *
+         * @todo: circular buffer and ByteView handler for lockfree queue.
+         * Because lockfree queue requires type to have trivial ctor/dtor the following requirements should be followed:
+         * The byteview handler will hold simple pointer to circular buffer and byteview.
+         * Circular buffer will automatically free memory allocated by ByteView after calling ByteViewHandler::free(); 
+         * This way we can free memory from the buffer after acquiring the data and processing the packet
+         * without actually acquiring/deleting memory from the OS and creating new instance on the heap each time. 
+         *
+         * This is the one way. The other is to use default queue of shared pointers which will automatically call free.
+         * This guarantees the deallocation of memory, but may result in lower performance. We need to test it out.
+         * 
+         * Right now this library is proof-of-concept, but it's a really important TODO.
+         */
+        boost::lockfree::queue<ByteArray*, boost::lockfree::fixed_sized<true>> received_packets_;
+        boost::lockfree::queue<ByteArray*, boost::lockfree::fixed_sized<true>> packets_to_send_;
 
         bool alive_ = true;
         boost::asio::streambuf buffer_;
         boost::asio::ip::tcp::tcp::socket socket_;
-
+        /**
+         * @brief AES encryption holder.
+         * @todo Add abstract encryption class that allows overloading of encrypt/decrypt from ByteView. 
+         */
         std::unique_ptr<crypto::AES::AES256> aes_ = nullptr;
 
         std::mutex packet_receiver_mutex_;

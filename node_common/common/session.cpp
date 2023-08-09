@@ -6,6 +6,9 @@ namespace node_system
     {
         receive_all();
         // call async packet forger
+        if (alive_ = socket_.is_open();
+            alive_)
+            spdlog::info("Session created");
 
         co_spawn(socket_.get_executor(), std::bind(&Session::async_packet_forger, this, std::ref(io)), boost::asio::detached);
         co_spawn(socket_.get_executor(), std::bind(&Session::send_all, this, std::ref(io)), boost::asio::detached);
@@ -14,35 +17,12 @@ namespace node_system
             co_spawn(socket_.get_executor(), std::bind(&Session::async_packet_sender, this, std::ref(io)), boost::asio::detached);
         }
         //            co_spawn(socket_.get_executor(), std::bind(&Session::read_all, this), boost::asio::detached);
-        if (alive_ = socket_.is_open();
-            alive_)
-            spdlog::info("Session created");
-    }
-    template<typename T>
-    bool Session::send_packet(const T& packet_arg) requires std::is_base_of_v<Packet, T>
-    {
-        if (!alive_)
-        {
-            spdlog::warn("Session is closed, cannot send packet");
-            return false;
-        }
-        const auto& packet = static_cast<const Packet&>(packet_arg);
-        ByteArray buffer = uint32_to_bytes(packet.type);
-        packet.serialize(buffer);
-        if (aes_)
-        {
-            buffer = encrypt(buffer);
-        }
-        while(!packets_to_send_.push(buffer) || !alive_)
-        {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        }
-        return true;
+
     }
 
     std::unique_ptr<Packet> Session::pop_packet_now()
     {
-        if (const std::optional<ByteArray> packet_data = pop_packet_data();
+        if (const std::unique_ptr<ByteArray> packet_data = pop_packet_data();
             packet_data)
         {
             if (aes_)
@@ -75,24 +55,12 @@ namespace node_system
         }
         co_return nullptr;
     }
-    bool Session::has_packets() 
-    {
-        return !received_packets_.empty();
-    }
 
-    void Session::setup_encryption(ByteArray key, ByteArray salt, short n_rounds)
+    std::unique_ptr<ByteArray> Session::pop_packet_data() noexcept
     {
-        aes_ = std::make_unique<crypto::AES::AES256>(key, salt, n_rounds);
-    }
-
-    std::optional<ByteArray> Session::pop_packet_data() noexcept
-    {
-        ByteArray packet;
-        if(received_packets_.pop(packet))
-        {
-            return packet;
-        }
-        return std::nullopt;
+        ByteArray *packet = nullptr;
+        received_packets_.pop(packet);
+        return std::unique_ptr<ByteArray>(packet);
     }
 
     void Session::receive_all()
@@ -105,13 +73,37 @@ namespace node_system
                     spdlog::warn("Error reading message: {}", ec.message());
                     socket_.close();
                     alive_ = false;
-                    packets_to_send_.consume_all([](ByteArray &&value){});
+                    packets_to_send_.consume_all([](ByteArray *value){ if(value != nullptr) delete value; });
                 }
                 else
                 {
-                    spdlog::trace("Received total of {} bytes", length);
+                    spdlog::info("Received total of {} bytes", length);
                 }
             });
+    }
+    boost::asio::awaitable<std::shared_ptr<Session>> Session::get_shared_ptr(boost::asio::io_context& io)
+    {
+        ExponentialBackoffUs backoff(std::chrono::microseconds(1), std::chrono::microseconds(1000 * 25), 2, 32, 0.1);
+        
+            int it = 0;
+            do
+            {
+                try {
+                    co_return shared_from_this();
+                } 
+                catch (std::bad_weak_ptr&) 
+                {
+                    it++;
+                }
+                boost::asio::steady_timer timer(io, backoff.get_current_delay());
+                co_await timer.async_wait(boost::asio::use_awaitable); 
+                backoff.increase_delay();
+                if(it >= 100 && it % 20 == 0)
+                {
+                    spdlog::error("Failed to retrieve pointer {} times", it);
+                }
+            } while(it <= 200);
+        co_return nullptr;
     }
     boost::asio::awaitable<void> Session::send_all(boost::asio::io_context& io)
     {
@@ -126,7 +118,12 @@ namespace node_system
         // This is done solely so we don't consume a lot of memory per session if we send heavy packets from time to time.
         const uint32_t kMaximumDataToSendSize = 1024 * 1024 * 1;
         data_to_send.reserve(kDefaultDataToSendSize);
-        std::shared_ptr<Session> session_lock = shared_from_this();
+        std::shared_ptr<Session> session_lock = co_await get_shared_ptr(io);
+        if(session_lock == nullptr)
+        {
+            spdlog::error("Couldn't retrieve shared pointer for session. Did you create the session using std::make_shared?");
+            co_return;
+        }
 
         ExponentialBackoffUs backoff(std::chrono::microseconds(1), std::chrono::microseconds(1000 * 25), 2, 32, 0.1);
         while (alive_)
@@ -142,13 +139,17 @@ namespace node_system
                         data_to_send.shrink_to_fit();
                     }
 
-                    ByteArray packet;
+                    ByteArray *packet = nullptr;
                     for (int i = 0; (i < 1000 && data_to_send.size() < kDefaultDataToSendSize) &&       
                         packets_to_send_.pop(packet);
                         i++)
                     {
-                        data_to_send.append(uint32_to_bytes(static_cast<uint32_t>(packet.size())));
-                        data_to_send.append(packet);
+                        data_to_send.append(uint32_to_bytes(static_cast<uint32_t>(packet->size())));
+                        data_to_send.append(*packet);
+                    }
+                    if (packet != nullptr)
+                    {
+                        delete packet;
                     }
                 }
 
@@ -172,7 +173,12 @@ namespace node_system
     boost::asio::awaitable<void> Session::async_packet_forger(boost::asio::io_context& io)
     {
         ExponentialBackoffUs backoff(std::chrono::microseconds(1), std::chrono::microseconds(1000 * 50), 2, 32, 0.1);
-        std::shared_ptr<Session> session_lock = shared_from_this();
+        std::shared_ptr<Session> session_lock = co_await get_shared_ptr(io);
+        if(session_lock == nullptr)
+        {
+            spdlog::error("Couldn't retrieve shared pointer for session. Did you create the session using std::make_shared?");
+            co_return;
+        }
         while (alive_)
         {
             if (buffer_.size() >= 4)
@@ -182,7 +188,7 @@ namespace node_system
                 const int64_t packet_size = bytes_to_uint32(packet_size_data);
                 // TODO: add a system that ensures that packet data size is correct.
                 // TODO: handle exception, and if packet size is too big we need to do something about it.
-                utils::AlwaysAssert(packet_size != 0 && packet_size < 1024 * 1024 * 1024 * 4, "The amount of bytes to read is too big. 4GB? What are you transfering? Anyways, it seems to be a bug.");
+                utils::AlwaysAssert(packet_size != 0 && packet_size < 1024ULL * 1024 * 1024 * 4, "The amount of bytes to read is too big. 4GB? What are you transfering? Anyways, it seems to be a bug.");
                 
                 while (static_cast<int64_t>(buffer_.size()) < packet_size && alive_)
                 {
@@ -196,8 +202,8 @@ namespace node_system
                     break;
                 }
 
-                ByteArray packet_data;
-                read_bytes_to(packet_data, packet_size);
+                ByteArray *packet_data = new ByteArray;
+                read_bytes_to(*packet_data, packet_size);
                 while(!received_packets_.push(packet_data))
                 {
                     boost::asio::steady_timer timer(io, std::chrono::microseconds(1000));
@@ -220,11 +226,16 @@ namespace node_system
             2, 
             64, 
             0.1);
-            
-        std::shared_ptr<Session> session_lock = shared_from_this();
+        
+        std::shared_ptr<Session> session_lock = co_await get_shared_ptr(io);
+        if(session_lock == nullptr)
+        {
+            spdlog::error("Couldn't retrieve shared pointer for session. Did you create the session using std::make_shared?");
+            co_return;
+        }
         while (alive_)
         {
-            ByteArray packet;
+            ByteArray *packet = nullptr;
             while((!bool(packet_receiver_) || !received_packets_.pop(packet)))
             {
                 if(!alive_)
@@ -236,15 +247,9 @@ namespace node_system
                 backoff.increase_delay();
             }
             
-            packet_receiver_(packet);
+            packet_receiver_(std::unique_ptr<ByteArray>(packet));
             backoff.decrease_delay();
         }
-    }
-    void Session::read_bytes_to(ByteArray& byte_array, const size_t amount)
-    {
-        const size_t current_size = byte_array.size();
-        byte_array.resize(current_size + amount);
-        buffer_.sgetn(byte_array.as<char>() + current_size * sizeof(char), amount);
     }
     
 }

@@ -7,7 +7,10 @@
 #include "crypto/diffie-hellman.hpp"
 #include "crypto/ecdsa.hpp"
 #include <iostream>
-
+#include "packets/packet-crypto.hpp"
+#include "packets/packet-network.hpp"
+#include "packets/packet-node.hpp"
+#include "packets/packet-system.hpp"
 using namespace node_system;
 using namespace crypto;
 
@@ -85,9 +88,10 @@ private:
             connection->setup_encryption(shared_key.hash_value, response_packet.salt, static_cast<uint16_t>(response_packet.n_rounds));
             break;
         }
-        std::unique_lock lock{ connection_access };
-        connections_.push_back(connection);
-
+        {
+            std::unique_lock lock{ connection_access };
+            connections_.push_back(connection);
+        }
         co_await process_packets(connection, io);
     }
     boost::asio::awaitable<void> process_packets(std::shared_ptr<node_system::Session> connection, boost::asio::io_context& io)
@@ -127,7 +131,7 @@ private:
                 else {
                     std::cout << "New connection established." << std::endl;
                     const auto connection = std::make_shared<node_system::Session>(io_context_, std::move(socket));
-                    co_spawn(socket.get_executor(), std::bind(&TcpServer::setup_encryption_for_session, this, connection, std::ref(io_context_)), boost::asio::detached);
+                    co_spawn(io_context_, std::bind(&TcpServer::setup_encryption_for_session, this, connection, std::ref(io_context_)), boost::asio::detached);
                 }
                 
         do_accept();
@@ -141,8 +145,29 @@ private:
     std::unique_ptr<crypto::ECDSA::Signer> signer_;
 };
 
+void workThread(boost::asio::io_context& ioContext) {
+    ioContext.run();
+}
+
 
 int main() {
+    using namespace node_system;
+    using namespace crypto;
+
+    using namespace node_system::packet;
+    using namespace node_system::packet::crypto;
+    using namespace node_system::packet::network;
+    using namespace node_system::packet::system;
+    using namespace node_system::packet::node;
+    node_system::packet::PacketFactory::RegisterDeserializer<DHKeyExchangeRequestPacket>();
+    node_system::packet::PacketFactory::RegisterDeserializer<DHKeyExchangeResponsePacket>();
+    node_system::packet::PacketFactory::RegisterDeserializer<PingPacket>();
+    node_system::packet::PacketFactory::RegisterDeserializer<PongPacket>();
+    node_system::packet::PacketFactory::RegisterDeserializer<MessagePacket>();
+    node_system::packet::PacketFactory::RegisterDeserializer<NodeInfoRequestPacket>();
+    node_system::packet::PacketFactory::RegisterDeserializer<NodeInfoResponsePacket>();
+    node_system::packet::PacketFactory::RegisterDeserializer<SystemInfoRequestPacket>();
+    node_system::packet::PacketFactory::RegisterDeserializer<SystemInfoResponsePacket>();
     try {
         boost::asio::io_context io_context;
         ByteArray private_key;
@@ -159,7 +184,32 @@ int main() {
 
         std::unique_ptr<ECDSA::Signer> signer = std::make_unique<ECDSA::Signer>(private_key, Hash::HashType::SHA256);
         TcpServer server(io_context, 1234, std::move(signer));
-        io_context.run();
+
+        std::vector<std::thread> threads;
+        for (int i = 0; i < 8; ++i) {
+            threads.emplace_back([&io_context]() {
+                try
+                {
+                    workThread(io_context);
+                }
+                catch (std::exception& e)
+                {
+                    spdlog::error(e.what());
+                }
+                });
+        }
+
+        try
+        {
+            io_context.run();
+        }
+        catch (std::exception& e)
+        {
+            spdlog::error(e.what());
+        }
+        for (auto& thread : threads) {
+            thread.join();
+        }
     }
     catch (std::exception& e) {
         std::cerr << e.what() << std::endl;
