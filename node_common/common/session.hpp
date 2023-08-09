@@ -26,6 +26,9 @@
 namespace node_system
 {
     using PacketReceiverFn = std::function<boost::asio::awaitable<void>(ByteArray)>;
+    /**
+     * @brief To correctly destroy this object you need to call Destroy function, because coroutines share the object from this.
+     */
     class Session : public utils::non_copyable_non_movable, public std::enable_shared_from_this<Session>
     {
     public:
@@ -35,7 +38,7 @@ namespace node_system
         template<typename T>
         bool send_packet(const T& packet_arg) requires std::is_base_of_v<Packet, T>;
         /**
-         * @brief Returns earliest acquired packet. Returns nullptr if packet queue is empty.
+         * @brief Returns the earliest acquired packet. If packet queue is empty, returns nullptr.
          * 
          * @warn If packet receiver is set through SetPacketReceiver there's no reason to call this function.
          * Generally packets will just go through the receiver. 
@@ -63,7 +66,7 @@ namespace node_system
         }
 
         [[nodiscard]] bool secured() const noexcept { return aes_ != nullptr; }
-        [[nodiscard]] bool is_closed() const noexcept { return !alive_ && !packet_forger_alive_ && !send_all_alive_; }
+        [[nodiscard]] bool is_closed() const noexcept { return !alive_; }
 
         // Set the callback which will handle received forget packets as vector
         void SetPacketReceiver(PacketReceiverFn const receiver)
@@ -71,6 +74,11 @@ namespace node_system
             std::lock_guard guard{packet_receiver_mutex_};
             packet_receiver_ = receiver;
         }
+        /**
+         * @brief Coroutines lock the shared ptr from this, so you need to explicitly call Destroy so alive_ is false. This way coroutines can end.
+         * 
+         */
+        void Destroy() { alive_ = false; }
 
     protected:
         std::optional<ByteArray> pop_packet_data() noexcept;
@@ -110,9 +118,6 @@ namespace node_system
 
         boost::lockfree::queue<ByteArray, boost::lockfree::fixed_sized<true>> received_packets_;
         boost::lockfree::queue<ByteArray, boost::lockfree::fixed_sized<true>> packets_to_send_;
-
-        bool packet_forger_alive_ = true;
-        bool send_all_alive_ = true;
 
         bool alive_ = true;
         boost::asio::streambuf buffer_;

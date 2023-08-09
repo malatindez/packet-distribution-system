@@ -14,7 +14,6 @@ namespace node_system
             alive_)
             spdlog::info("Session created");
     }
-
     template<typename T>
     bool Session::send_packet(const T& packet_arg) requires std::is_base_of_v<Packet, T>
     {
@@ -30,7 +29,7 @@ namespace node_system
         {
             buffer = encrypt(buffer);
         }
-        while(!packets_to_send_.push(buffer))
+        while(!packets_to_send_.push(buffer) || !alive_)
         {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
@@ -56,18 +55,9 @@ namespace node_system
 
     boost::asio::awaitable<std::unique_ptr<Packet>> Session::pop_packet_async(boost::asio::io_context& io)
     {
-        std::weak_ptr<Session> weak_ptr_to_this = shared_from_this();
-
         ExponentialBackoffUs backoff(std::chrono::microseconds(1), std::chrono::microseconds(1000 * 50), 2, 0.1);
-        while (true)
+        while (this->alive_)
         {
-            // Lock session just to check.
-            std::shared_ptr<Session> session_ptr = weak_ptr_to_this.lock();
-            if (session_ptr == nullptr || !this->alive_)
-            {
-                co_return nullptr;
-            }
-
             std::unique_ptr<Packet> packet = pop_packet_now();
 
             if (packet)
@@ -79,6 +69,7 @@ namespace node_system
             co_await timer.async_wait(boost::asio::use_awaitable);
             backoff.increase_delay();
         }
+        co_return nullptr;
     }
     bool Session::has_packets() 
     {
@@ -131,7 +122,8 @@ namespace node_system
         // This is done solely so we don't consume a lot of memory per session if we send heavy packets from time to time.
         const uint32_t kMaximumDataToSendSize = 1024 * 1024 * 1;
         data_to_send.reserve(kDefaultDataToSendSize);
-        
+        std::shared_ptr<Session> session_lock = shared_from_this();
+
         ExponentialBackoffUs backoff(std::chrono::microseconds(1), std::chrono::microseconds(1000 * 25), 2, 32, 0.1);
         while (alive_)
         {
@@ -171,12 +163,12 @@ namespace node_system
             co_await timer.async_wait(boost::asio::use_awaitable);
             backoff.increase_delay();
         }
-        packet_forger_alive_ = false;
     }
 
     boost::asio::awaitable<void> Session::async_packet_forger(boost::asio::io_context& io)
     {
         ExponentialBackoffUs backoff(std::chrono::microseconds(1), std::chrono::microseconds(1000 * 50), 2, 32, 0.1);
+        std::shared_ptr<Session> session_lock = shared_from_this();
         while (alive_)
         {
             if (buffer_.size() >= 4)
@@ -197,7 +189,6 @@ namespace node_system
                 if (static_cast<int64_t>(buffer_.size()) < packet_size) 
                 // While loop waits until requirement is satisfied, so if it's false then alive_ is false and session is dead, so we won't get any data anymore
                 {
-                    spdlog::warn("The packet size is bigger than the buffer size");
                     break;
                 }
 
@@ -215,7 +206,6 @@ namespace node_system
             co_await timer.async_wait(boost::asio::use_awaitable);
             backoff.increase_delay();
         }
-        send_all_alive_ = false;
     }
     
     boost::asio::awaitable<void> Session::async_packet_sender(boost::asio::io_context& io)
@@ -226,15 +216,22 @@ namespace node_system
             2, 
             64, 
             0.1);
-        while (true)
+            
+        std::shared_ptr<Session> session_lock = shared_from_this();
+        while (alive_)
         {
             ByteArray packet;
-            while(!bool(packet_receiver_) || !received_packets_.pop(packet))
+            while((!bool(packet_receiver_) || !received_packets_.pop(packet)))
             {
+                if(!alive_)
+                {
+                    break;
+                }
                 boost::asio::steady_timer timer(io, backoff.get_current_delay());
                 co_await timer.async_wait(boost::asio::use_awaitable);
                 backoff.increase_delay();
             }
+            
             packet_receiver_(packet);
             backoff.decrease_delay();
         }
