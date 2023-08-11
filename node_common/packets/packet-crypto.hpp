@@ -55,4 +55,11 @@ namespace node_system::packet::crypto
             ar& n_rounds;
         }
     };
+    
+    constexpr void RegisterDeserializers()
+    {
+        node_system::packet::PacketFactory::RegisterDeserializer<DHKeyExchangeRequestPacket>();
+        node_system::packet::PacketFactory::RegisterDeserializer<DHKeyExchangeResponsePacket>();
+    }
+
 }

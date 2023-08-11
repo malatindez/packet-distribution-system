@@ -28,6 +28,31 @@ std::string bytes_to_hex_str(ByteView const byte_view)
     return rv;
 }
 
+boost::asio::awaitable<bool> EncryptionHandlerServer(
+    boost::asio::io_context& io, 
+    PacketDispatcher& dispatcher, 
+    std::unique_ptr<DHKeyExchangeRequestPacket> exchange_request)
+{
+    if(valid(exchange_request))
+    {
+        co_spawn(io, [](std::unique_ptr<DHKeyExchangeRequestPacket> exchange_request) __lambda_force_inline 
+            -> boost::asio::awaitable<void>
+        {
+            co_await 
+        })
+        co_return true;
+    }
+    else
+    {
+        co_return false;
+    }
+    
+    // continue processing the packet
+    std::shared_ptr<node_system::Session> connection;
+
+}
+
+
 class TcpServer {
 public:
     TcpServer(boost::asio::io_context& io_context, unsigned short port, std::unique_ptr<ECDSA::Signer> signer)
@@ -155,19 +180,16 @@ int main() {
     using namespace crypto;
 
     using namespace node_system::packet;
+    node_system::packet::crypto::RegisterDeserializers();
+    node_system::packet::network::RegisterDeserializers();
+    node_system::packet::node::RegisterDeserializers();
+    node_system::packet::system::RegisterDeserializers();
+
     using namespace node_system::packet::crypto;
     using namespace node_system::packet::network;
     using namespace node_system::packet::system;
     using namespace node_system::packet::node;
-    node_system::packet::PacketFactory::RegisterDeserializer<DHKeyExchangeRequestPacket>();
-    node_system::packet::PacketFactory::RegisterDeserializer<DHKeyExchangeResponsePacket>();
-    node_system::packet::PacketFactory::RegisterDeserializer<PingPacket>();
-    node_system::packet::PacketFactory::RegisterDeserializer<PongPacket>();
-    node_system::packet::PacketFactory::RegisterDeserializer<MessagePacket>();
-    node_system::packet::PacketFactory::RegisterDeserializer<NodeInfoRequestPacket>();
-    node_system::packet::PacketFactory::RegisterDeserializer<NodeInfoResponsePacket>();
-    node_system::packet::PacketFactory::RegisterDeserializer<SystemInfoRequestPacket>();
-    node_system::packet::PacketFactory::RegisterDeserializer<SystemInfoResponsePacket>();
+    
     try {
         boost::asio::io_context io_context;
         ByteArray private_key;

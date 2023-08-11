@@ -34,4 +34,10 @@ namespace node_system::packet::system
             ar& boost::serialization::base_object<DerivedPacket<class SystemInfoResponsePacket>>(*this);
         }
     };
+    
+    constexpr void RegisterDeserializers()
+    {
+        node_system::packet::PacketFactory::RegisterDeserializer<SystemInfoRequestPacket>();
+        node_system::packet::PacketFactory::RegisterDeserializer<SystemInfoResponsePacket>();
+    }
 }

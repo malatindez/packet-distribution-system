@@ -6,7 +6,7 @@ namespace node_system
     template<typename ChronoType>
     class ExponentialBackoff {
     public:
-        ExponentialBackoff(ChronoType initial_delay, 
+        constexpr ExponentialBackoff(ChronoType initial_delay, 
                         ChronoType max_delay,
                         double multiplier = 2.0, 
                         double divisor = 2.0,
@@ -20,20 +20,20 @@ namespace node_system
             uniform_dist_(0.0, 1.0),
             rng_(std::random_device{}()) {}
 
-        ChronoType get_current_delay() {
+        constexpr ChronoType get_current_delay() noexcept {
             ChronoType jitter = std::chrono::duration_cast<ChronoType>(current_delay_ * jitter_factor_ * uniform_dist_(rng_));
             return current_delay_ + jitter;
         }
 
-        void increase_delay() {
+        constexpr void increase_delay() noexcept {
             current_delay_ = std::min(std::chrono::duration_cast<ChronoType>(current_delay_ * multiplier_), max_delay_);
         }
 
-        void decrease_delay() {
+        constexpr void decrease_delay() noexcept {
             current_delay_ = std::max(std::chrono::duration_cast<ChronoType>(current_delay_ / divisor_), initial_delay_);
         }
         
-        void reset_delay() {
+        constexpr void reset_delay() noexcept {
             current_delay_ = initial_delay_;
         }
 
@@ -43,17 +43,19 @@ namespace node_system
         const ChronoType max_delay_;
         const double multiplier_;
         const double divisor_;
-        // Randomizing the backoff delay by a certain percentage can prevent synchronized retries from multiple nodes (the thundering herd problem).
+        // Randomizing the backoff delay by a certain percentage can prevent
+        // synchronized retries from multiple functions (the thundering herd problem).
         const double jitter_factor_;
+        const std::uniform_real_distribution<double> uniform_dist_;
+
         ChronoType current_delay_;
-        std::uniform_real_distribution<double> uniform_dist_;
         std::default_random_engine rng_;
     };
 
     template<typename ChronoType>
     class LinearBackoff {
     public:
-        LinearBackoff(ChronoType initial_delay, 
+        constexpr LinearBackoff(ChronoType initial_delay, 
                         ChronoType max_delay,
                         ChronoType step)
             : initial_delay_(initial_delay),
@@ -61,17 +63,18 @@ namespace node_system
             step_(step),
             current_delay_(initial_delay) {}
 
-        ChronoType get_current_delay() {
+        constexpr ChronoType get_current_delay() const noexcept {
+            return current_delay_;
         }
 
-        void increase_delay() {
+        constexpr void increase_delay() noexcept {
             current_delay_ = std::min(current_delay_ + step_, max_delay_);
         }
-        void decrease_delay() {
+        constexpr void decrease_delay() noexcept {
             current_delay_ = std::max(current_delay_ - step_, initial_delay_);
         }
 
-        void reset_delay() {
+        constexpr void reset_delay() noexcept {
             current_delay_ = initial_delay_;
         }
 

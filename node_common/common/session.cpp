@@ -39,7 +39,7 @@ namespace node_system
 
     boost::asio::awaitable<std::unique_ptr<Packet>> Session::pop_packet_async(boost::asio::io_context& io)
     {
-        ExponentialBackoffUs backoff(std::chrono::microseconds(1), std::chrono::microseconds(1000 * 50), 2, 0.1);
+        ExponentialBackoffUs backoff(std::chrono::microseconds(1), std::chrono::microseconds(1000), 2, 0.1);
         while (this->alive_)
         {
             std::unique_ptr<Packet> packet = pop_packet_now();
@@ -83,7 +83,7 @@ namespace node_system
     }
     boost::asio::awaitable<std::shared_ptr<Session>> Session::get_shared_ptr(boost::asio::io_context& io)
     {
-        ExponentialBackoffUs backoff(std::chrono::microseconds(1), std::chrono::microseconds(1000 * 25), 2, 32, 0.1);
+        ExponentialBackoffUs backoff(std::chrono::microseconds(1), std::chrono::microseconds(1000), 2, 32, 0.1);
         
             int it = 0;
             do
@@ -125,7 +125,7 @@ namespace node_system
             co_return;
         }
 
-        ExponentialBackoffUs backoff(std::chrono::microseconds(1), std::chrono::microseconds(1000 * 25), 2, 32, 0.1);
+        ExponentialBackoffUs backoff(std::chrono::microseconds(1), std::chrono::microseconds(1000), 2, 32, 0.1);
         while (alive_)
         {
             if (!packets_to_send_.empty() && !writing)
@@ -172,7 +172,7 @@ namespace node_system
 
     boost::asio::awaitable<void> Session::async_packet_forger(boost::asio::io_context& io)
     {
-        ExponentialBackoffUs backoff(std::chrono::microseconds(1), std::chrono::microseconds(1000 * 50), 2, 32, 0.1);
+        ExponentialBackoffUs backoff(std::chrono::microseconds(1), std::chrono::microseconds(1000), 2, 32, 0.1);
         std::shared_ptr<Session> session_lock = co_await get_shared_ptr(io);
         if(session_lock == nullptr)
         {
@@ -222,7 +222,7 @@ namespace node_system
     {
         ExponentialBackoffUs backoff(
             std::chrono::microseconds(1), 
-            std::chrono::microseconds(1000 * 500), 
+            std::chrono::microseconds(1000 * 10), 
             2, 
             64, 
             0.1);

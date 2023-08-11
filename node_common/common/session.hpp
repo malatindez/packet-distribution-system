@@ -38,7 +38,18 @@ namespace node_system
             packets_to_send_.consume_all([](ByteArray *value){ if (value != nullptr)  delete value; });
             received_packets_.consume_all([](ByteArray *value){ if (value != nullptr) delete value; });
         }
-
+        /**
+         * @brief Sends any packet derived from DerivedPacket through the network.
+         * 
+         * @tparam T final packet type. 
+         * (Template functions cannot be overriden, we need to call serialize from the furthest child.)
+         * 
+         * @note Blockable until packets_to_send_ can retrieve the value.
+         * 
+         * @param packet_arg Packet value
+         * @return true if session got the packet.
+         * @return false if session was closed.
+         */
         template<typename T>
         bool send_packet(const T& packet_arg) requires std::is_base_of_v<Packet, T>
         {
@@ -55,9 +66,17 @@ namespace node_system
                 buffer = encrypt(buffer);
             }
 
-            while (!packets_to_send_.push(new ByteArray{ std::move(buffer) }) || !alive_)
+            ByteArray *value = new ByteArray{ std::move(buffer) };
+            ExponentialBackoffUs backoff(std::chrono::microseconds(1), std::chrono::microseconds(1000), 2, 1, 0.1);
+            while (!packets_to_send_.push(value) || !alive_)
             {
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                std::this_thread::sleep_for(backoff.get_current_delay());
+                backoff.increase_delay();
+            }
+            if(!alive_)
+            {
+                delete value;
+                return false;
             }
             return true;
         }
@@ -161,10 +180,10 @@ namespace node_system
          *
          * @todo: circular buffer and ByteView handler for lockfree queue.
          * Because lockfree queue requires type to have trivial ctor/dtor the following requirements should be followed:
-         * The byteview handler will hold simple pointer to circular buffer and byteview.
-         * Circular buffer will automatically free memory allocated by ByteView after calling ByteViewHandler::free(); 
+         * The byteview handler should hold simple pointer to circular buffer and byteview.
+         * Circular buffer should automatically free memory allocated by ByteView after calling ByteViewHandler::free(); 
          * This way we can free memory from the buffer after acquiring the data and processing the packet
-         * without actually acquiring/deleting memory from the OS and creating new instance on the heap each time. 
+         * without actually acquiring/deleting memory from the OS and creating new instance on the heap each time.
          *
          * This is the one way. The other is to use default queue of shared pointers which will automatically call free.
          * This guarantees the deallocation of memory, but may result in lower performance. We need to test it out.

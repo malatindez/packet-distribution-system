@@ -63,6 +63,7 @@ boost::asio::awaitable<void> process_packets(std::shared_ptr<node_system::Sessio
     }
 }
 
+
 boost::asio::awaitable<void> setup_encryption_for_session(std::shared_ptr<node_system::Session> connection, boost::asio::io_context& io,
     node_system::crypto::ECDSA::Verifier& verifier)
 {
@@ -112,15 +113,10 @@ void workThread(boost::asio::io_context& ioContext) {
 }
 
 int main() {
-    node_system::packet::PacketFactory::RegisterDeserializer<DHKeyExchangeRequestPacket>();
-    node_system::packet::PacketFactory::RegisterDeserializer<DHKeyExchangeResponsePacket>();
-    node_system::packet::PacketFactory::RegisterDeserializer<PingPacket>();
-    node_system::packet::PacketFactory::RegisterDeserializer<PongPacket>();
-    node_system::packet::PacketFactory::RegisterDeserializer<MessagePacket>();
-    node_system::packet::PacketFactory::RegisterDeserializer<NodeInfoRequestPacket>();
-    node_system::packet::PacketFactory::RegisterDeserializer<NodeInfoResponsePacket>();
-    node_system::packet::PacketFactory::RegisterDeserializer<SystemInfoRequestPacket>();
-    node_system::packet::PacketFactory::RegisterDeserializer<SystemInfoResponsePacket>();
+    node_system::packet::crypto::RegisterDeserializers();
+    node_system::packet::network::RegisterDeserializers();
+    node_system::packet::node::RegisterDeserializers();
+    node_system::packet::system::RegisterDeserializers();
 
     try {
         boost::asio::io_context io_context;
