@@ -56,7 +56,7 @@ namespace node_system::packet::crypto
         }
     };
     
-    constexpr void RegisterDeserializers()
+    inline void RegisterDeserializers()
     {
         node_system::packet::PacketFactory::RegisterDeserializer<DHKeyExchangeRequestPacket>();
         node_system::packet::PacketFactory::RegisterDeserializer<DHKeyExchangeResponsePacket>();

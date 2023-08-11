@@ -66,7 +66,7 @@ namespace node_system::packet::network
     };
 
 
-    constexpr void RegisterDeserializers()
+    inline void RegisterDeserializers()
     {
         node_system::packet::PacketFactory::RegisterDeserializer<PingPacket>();
         node_system::packet::PacketFactory::RegisterDeserializer<PongPacket>();

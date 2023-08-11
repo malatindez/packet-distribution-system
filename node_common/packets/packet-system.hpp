@@ -35,7 +35,7 @@ namespace node_system::packet::system
         }
     };
     
-    constexpr void RegisterDeserializers()
+    inline void RegisterDeserializers()
     {
         node_system::packet::PacketFactory::RegisterDeserializer<SystemInfoRequestPacket>();
         node_system::packet::PacketFactory::RegisterDeserializer<SystemInfoResponsePacket>();

@@ -6,7 +6,7 @@ namespace node_system
     template<typename ChronoType>
     class ExponentialBackoff {
     public:
-        constexpr ExponentialBackoff(ChronoType initial_delay, 
+        ExponentialBackoff(ChronoType initial_delay, 
                         ChronoType max_delay,
                         double multiplier = 2.0, 
                         double divisor = 2.0,
@@ -46,7 +46,7 @@ namespace node_system
         // Randomizing the backoff delay by a certain percentage can prevent
         // synchronized retries from multiple functions (the thundering herd problem).
         const double jitter_factor_;
-        const std::uniform_real_distribution<double> uniform_dist_;
+        std::uniform_real_distribution<double> uniform_dist_;
 
         ChronoType current_delay_;
         std::default_random_engine rng_;

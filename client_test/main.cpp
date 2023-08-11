@@ -2,7 +2,6 @@
 #include <thread>
 
 #include "common/session.hpp"
-#include "common/packet-queue.hpp"
 #include "common/packet-dispatcher.hpp"
 #include "crypto/diffie-hellman.hpp"
 #include "crypto/ecdsa.hpp"

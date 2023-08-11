@@ -36,7 +36,7 @@ namespace node_system::packet::node
         }
     };
     
-    constexpr void RegisterDeserializers()
+    inline void RegisterDeserializers()
     {
         node_system::packet::PacketFactory::RegisterDeserializer<NodeInfoRequestPacket>();
         node_system::packet::PacketFactory::RegisterDeserializer<NodeInfoResponsePacket>();

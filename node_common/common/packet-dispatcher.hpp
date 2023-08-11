@@ -44,7 +44,7 @@ namespace node_system
         :   unprocessed_packets_input_strand_{io_context}, 
             promise_map_input_strand_{io_context}, 
             promise_filter_map_input_strand_{io_context},
-            default_handler_input_strand_{io_context}
+            default_handlers_input_strand_{io_context}
          {}
 
 
@@ -79,7 +79,7 @@ namespace node_system
             if (status == std::future_status::ready) {
                 co_return std::dynamic_pointer_cast<DerivedPacket>(std::future.get());
             } else if (status == std::future_status::timeout) {
-                co_return std::nullptr;
+                co_return nullptr;
             }
         }
         
@@ -120,7 +120,7 @@ namespace node_system
             if (status == std::future_status::ready) {
                 co_return std::dynamic_pointer_cast<DerivedPacket>(std::future.get());
             } else if (status == std::future_status::timeout) {
-                co_return std::nullptr;
+                co_return nullptr;
             }
         }
         
@@ -135,7 +135,7 @@ namespace node_system
         template <IsPacket DerivedPacket>
         void register_default_handler(PacketHandlerFunc<DerivedPacket> handler, PacketFilterFunc<DerivedPacket> filter = {}, float delay = 0.0f)
         {
-            enqueue_packet_strand_.post(
+            default_handlers_input_strand_.post(
                 [this, 
                     delay, 
                     movedFilter = std::move(filter), 
@@ -198,8 +198,8 @@ namespace node_system
                 }
                 std::erase_if(
                     unprocessed_packets_, 
-                    [](UniquePacketID, std::vector<BasePacketPtr> vec) __lambda_force_inline 
-                    { return vec.empty(); }
+                    [](auto const &pair) __lambda_force_inline
+                    { return pair.second.empty(); }
                 );
                 backoff.decrease_delay();
             }
@@ -269,9 +269,10 @@ namespace node_system
         void push_packet(BasePacketPtr &&packet)
         {
             unprocessed_packets_input_strand_.post(
-                [this, moved_packet = std::move(packet)]() mutable -> boost::asio::awaitable<void>
+                [this, released_packet = packet.release()]()
                 {
-                    unprocessed_packets_input_.emplace_back(std::move(moved_packet));
+                    BasePacketPtr unique_packet{ released_packet };
+                    unprocessed_packets_input_.emplace_back(std::move(unique_packet));
                     unprocessed_packets_input_updated_.test_and_set(std::memory_order_release);
                 }
             );
@@ -313,21 +314,21 @@ namespace node_system
             });
             return promise_filter_map_input_future;
         }
-        std::future<bool> create_default_handler_input_pop_task() 
+        std::future<bool> create_default_handlers_input_pop_task() 
         {
-            std::shared_ptr<std::promise<bool>> default_handler_input_promise = std::make_shared<std::promise<bool>>();
-            std::future<bool> default_handler_input_future = default_handler_input_promise->get_future();
-            default_handler_input_strand_.post([this, default_handler_input_promise]() {
-                for (auto &[packet_id, handler] : default_handler_input_) {
+            std::shared_ptr<std::promise<bool>> default_handlers_input_promise = std::make_shared<std::promise<bool>>();
+            std::future<bool> default_handlers_input_future = default_handlers_input_promise->get_future();
+            default_handlers_input_strand_.post([this, default_handlers_input_promise]() {
+                for (auto &[packet_id, handler] : default_handlers_input_) {
                     auto &handler_list = default_handlers_[packet_id];
                     handler_list.emplace_back(std::move(handler));
                 }
-                bool t = default_handler_input_.size() > 0;
-                default_handler_input_.clear();
-                default_handler_input_promise->set_value(t);
-                default_handler_input_updated_.clear(std::memory_order_release);
+                bool t = default_handlers_input_.size() > 0;
+                default_handlers_input_.clear();
+                default_handlers_input_promise->set_value(t);
+                default_handlers_input_updated_.clear(std::memory_order_release);
             });
-            return default_handler_input_future;
+            return default_handlers_input_future;
         }
         std::future<bool> create_unprocessed_packets_input_pop_task() {
             std::shared_ptr<std::promise<bool>> unprocessed_packets_input_promise = std::make_shared<std::promise<bool>>();
@@ -336,7 +337,7 @@ namespace node_system
                 for (auto &packet_ptr : unprocessed_packets_input_) {
                     auto packet_id = packet_ptr->type;
                     auto &unprocessed_packets_queue_ = unprocessed_packets_[packet_id];
-                    unprocessed_packets_queue_.emplace(std::move(packet_ptr));
+                    unprocessed_packets_queue_.emplace_back(std::move(packet_ptr));
                 }
                 bool t = unprocessed_packets_input_.size() > 0;
                 unprocessed_packets_input_.clear();
@@ -362,10 +363,10 @@ namespace node_system
             
             if(promise_filter_map_input_updated_.test(std::memory_order_acquire))
             {
-                futures.emplace_back(create_default_handler_input_pop_task());
+                futures.emplace_back(create_default_handlers_input_pop_task());
             }
             
-            if(default_handler_input_updated_.test(std::memory_order_acquire))
+            if(default_handlers_input_updated_.test(std::memory_order_acquire))
             {
                 futures.emplace_back(create_unprocessed_packets_input_pop_task());
             }
@@ -386,17 +387,17 @@ namespace node_system
         boost::asio::io_context::strand unprocessed_packets_input_strand_;
         boost::asio::io_context::strand promise_map_input_strand_;
         boost::asio::io_context::strand promise_filter_map_input_strand_;
-        boost::asio::io_context::strand default_handler_input_strand_;
+        boost::asio::io_context::strand default_handlers_input_strand_;
 
         std::atomic_flag unprocessed_packets_input_updated_;
         std::atomic_flag promise_map_input_updated_;
         std::atomic_flag promise_filter_map_input_updated_;
-        std::atomic_flag default_handler_input_updated_;
+        std::atomic_flag default_handlers_input_updated_;
 
         std::vector<BasePacketPtr> unprocessed_packets_input_;
         std::vector<std::pair<UniquePacketID, shared_packet_promise>> promise_map_input_;
         std::vector<std::pair<UniquePacketID, promise_filter>> promise_filter_map_input_;
-        std::vector<std::pair<UniquePacketID, handler_tuple>> default_handler_input_;
+        std::vector<std::pair<UniquePacketID, handler_tuple>> default_handlers_input_;
 
         std::unordered_map<UniquePacketID, std::vector<BasePacketPtr>> unprocessed_packets_;
         std::unordered_map<UniquePacketID, std::deque<shared_packet_promise>> promise_map_;
