@@ -14,7 +14,7 @@
 #include <boost/asio/spawn.hpp>
 #include <boost/bind/bind.hpp>
 #include <boost/asio/steady_timer.hpp>
-
+#include "include/spdlog.hpp"
 namespace node_system
 {
     // If function returns false that means that the packet was discarded and we should pass it on.
@@ -69,15 +69,20 @@ namespace node_system
             enqueue_promise(packet_type, promise);
             auto future = promise->get_future();
             co_await boost::asio::this_coro::executor;
+            spdlog::debug("Waiting for packet: {}", DerivedPacket::static_type);
             if(timeout <= 0)
             {
-                co_return std::dynamic_pointer_cast<DerivedPacket>(std::future.get());
+                auto base = future.get();
+                utils::Assert(base->type == DerivedPacket::static_type); // Sanity check
+                co_return std::unique_ptr<DerivedPacket>(reinterpret_cast<DerivedPacket*>(base.release()));
             }
         
-            std::future_status status = future.wait_for(std::chrono::microseconds(timeout / 1e6f));
+            std::future_status status = future.wait_for(std::chrono::microseconds(size_t(timeout * 1e6f)));
 
             if (status == std::future_status::ready) {
-                co_return std::dynamic_pointer_cast<DerivedPacket>(std::future.get());
+                auto base = future.get();
+                utils::Assert(base->type == DerivedPacket::static_type); // Sanity check
+                co_return std::unique_ptr<DerivedPacket>(reinterpret_cast<DerivedPacket*>(base.release()));
             } else if (status == std::future_status::timeout) {
                 co_return nullptr;
             }
@@ -109,16 +114,20 @@ namespace node_system
             
             auto future = promise->get_future();
             co_await boost::asio::this_coro::executor;
-            
+            spdlog::debug("Waiting for packet: {}", DerivedPacket::static_type);
             if(timeout <= 0)
             {
-                co_return std::dynamic_pointer_cast<DerivedPacket>(std::future.get());
+                auto base = future.get();
+                utils::Assert(base->type == DerivedPacket::static_type); // Sanity check
+                co_return std::unique_ptr<DerivedPacket>(reinterpret_cast<DerivedPacket*>(base.release()));
             }
         
-            std::future_status status = future.wait_for(std::chrono::microseconds(timeout / 1e6f));
+            std::future_status status = future.wait_for(std::chrono::microseconds(size_t(timeout * 1e6f)));
 
             if (status == std::future_status::ready) {
-                co_return std::dynamic_pointer_cast<DerivedPacket>(std::future.get());
+                auto base = future.get();
+                utils::Assert(base->type == DerivedPacket::static_type); // Sanity check
+                co_return std::unique_ptr<DerivedPacket>(reinterpret_cast<DerivedPacket*>(base.release()));
             } else if (status == std::future_status::timeout) {
                 co_return nullptr;
             }
@@ -135,6 +144,7 @@ namespace node_system
         template <IsPacket DerivedPacket>
         void register_default_handler(PacketHandlerFunc<DerivedPacket> handler, PacketFilterFunc<DerivedPacket> filter = {}, float delay = 0.0f)
         {
+            spdlog::debug("Posting task to register default handler for packet {}", DerivedPacket::static_type);
             default_handlers_input_strand_.post(
                 [this, 
                     delay, 
@@ -142,17 +152,20 @@ namespace node_system
                     movedHandler = std::move(handler)
                 ]() __lambda_force_inline -> void
                 {
-                    auto packetType = DerivedPacket::static_type;
-                    default_handlers_[packetType] = { delay, std::move(movedFilter), std::move(movedHandler) };
+                    auto packet_id = DerivedPacket::static_type;
+                    spdlog::debug("Registered default handler for packet {}!", packet_id);
+                    default_handlers_[packet_id] = { delay, std::move(movedFilter), std::move(movedHandler) };
                     default_handlers_input_updated_.test_and_set(std::memory_order_release);
                 });
         }
 
         void enqueue_promise(UniquePacketID packet_id, shared_packet_promise promise)
         {
+            spdlog::debug("Posting task to enqueue promise for packet {}", packet_id);
             promise_map_input_strand_.post(
-                [this, packet_id, moved_promise = std::move(promise)]() mutable -> boost::asio::awaitable<void>
+                [this, packet_id, moved_promise = std::move(promise)]() mutable
                 {
+                    spdlog::debug("Promise enqueued for packet {}!", packet_id);
                     promise_map_input_.emplace_back(std::pair{packet_id, std::move(moved_promise)});
                     promise_map_input_updated_.test_and_set(std::memory_order_release);
                 }
@@ -161,9 +174,11 @@ namespace node_system
         
         void enqueue_filter_promise(UniquePacketID packet_id, promise_filter filtered_promise)
         {
+            spdlog::debug("Posting task to enqueue promise with filter for packet {}", packet_id);
             promise_filter_map_input_strand_.post(
-                [this, packet_id, moved_filtered_promise = std::move(filtered_promise)]() mutable -> boost::asio::awaitable<void>
+                [this, packet_id, moved_filtered_promise = std::move(filtered_promise)]() mutable
                 {
+                    spdlog::debug("Promise with filter enqueued for packet {}!", packet_id);
                     promise_filter_map_input_.emplace_back(std::pair{packet_id, std::move(moved_filtered_promise)});
                     promise_filter_map_input_updated_.test_and_set(std::memory_order_release);
                 }
@@ -175,25 +190,42 @@ namespace node_system
         boost::asio::awaitable<void> Run()
         {
             ExponentialBackoffUs backoff{
-                std::chrono::microseconds(10), 
+                std::chrono::microseconds(1), 
                 std::chrono::microseconds(1000), 
                 2, 32, 0.1};
+            utils::SteadyTimer timer;
+            float min_handler_timestamp = std::numeric_limits<float>::max();
             while (true)
             {
                 bool updated = co_await pop_inputs();
-                
                 if(!updated)
                 {
+                    if(min_handler_timestamp < timer.elapsed())
+                    {
+                        spdlog::trace("Updating handlers...");
+                        min_handler_timestamp = std::numeric_limits<float>::max();
+                        
+                        for(auto &[packet_id, packet_vector] : unprocessed_packets_)
+                        {
+                            std::erase_if(packet_vector, [this, &packet_id, &min_handler_timestamp, &timer](BasePacketPtr &packet) __lambda_force_inline 
+                            {
+                                return fulfill_handlers(packet_id, packet, min_handler_timestamp, timer);
+                            });
+                        }
+                    }
                     boost::asio::steady_timer(co_await boost::asio::this_coro::executor, backoff.get_current_delay());
                     backoff.increase_delay();
                     continue;
                 }
-                
+
+                spdlog::trace("Input arrays were updated! Fetching...");
+
+                min_handler_timestamp = std::numeric_limits<float>::max();
                 for(auto &[packet_id, packet_vector] : unprocessed_packets_)
                 {
-                    std::erase_if(packet_vector, [this, &packet_id](BasePacketPtr &packet) __lambda_force_inline 
+                    std::erase_if(packet_vector, [this, &packet_id, &min_handler_timestamp, &timer](BasePacketPtr &packet) __lambda_force_inline 
                     {
-                        return fulfill_promises(packet_id, packet) || fulfill_handlers(packet_id, packet);
+                        return fulfill_promises(packet_id, packet) || fulfill_handlers(packet_id, packet, min_handler_timestamp, timer) || packet->expired();
                     });
                 }
                 std::erase_if(
@@ -235,7 +267,7 @@ namespace node_system
             return false;
         }
         
-        inline bool fulfill_handlers(UniquePacketID packet_id, BasePacketPtr &packet)
+        inline bool fulfill_handlers(UniquePacketID packet_id, BasePacketPtr &packet, float &min_handler_timestamp, utils::SteadyTimer &timer)
         {
             auto it = default_handlers_.find(packet_id);
             if(it == default_handlers_.end())
@@ -247,6 +279,11 @@ namespace node_system
             {
                 if (delay > packet->get_packet_time_alive())
                 {
+                    min_handler_timestamp = 
+                        std::min<float>(
+                            min_handler_timestamp, 
+                            timer.elapsed() + delay - packet->get_packet_time_alive()
+                            );
                     continue;
                 }
  

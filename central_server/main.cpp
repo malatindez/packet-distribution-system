@@ -2,7 +2,6 @@
 #include <boost/asio.hpp>
 
 #include "common/session.hpp"
-#include "common/packet-queue.hpp"
 #include "common/packet-dispatcher.hpp"
 #include "crypto/diffie-hellman.hpp"
 #include "crypto/ecdsa.hpp"
@@ -27,7 +26,7 @@ std::string bytes_to_hex_str(ByteView const byte_view)
     }
     return rv;
 }
-
+/*
 boost::asio::awaitable<bool> EncryptionHandlerServer(
     boost::asio::io_context& io, 
     PacketDispatcher& dispatcher, 
@@ -50,7 +49,8 @@ boost::asio::awaitable<bool> EncryptionHandlerServer(
     // continue processing the packet
     std::shared_ptr<node_system::Session> connection;
 
-}
+}*/
+
 
 
 class TcpServer {
@@ -176,6 +176,7 @@ void workThread(boost::asio::io_context& ioContext) {
 
 
 int main() {
+    spdlog::set_level(spdlog::level::trace);
     using namespace node_system;
     using namespace crypto;
 

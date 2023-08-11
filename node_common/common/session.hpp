@@ -25,7 +25,7 @@
 
 namespace node_system
 {
-    using PacketReceiverFn = std::function<boost::asio::awaitable<void>(std::unique_ptr<ByteArray> &&)>;
+    using PacketReceiverFn = std::function<void(std::unique_ptr<Packet> &&)>;
     /**
      * @brief To correctly destroy this object you need to call Destroy function, because coroutines share the object from this.
      */
