@@ -6,9 +6,19 @@
 
 namespace node_system::packet::crypto
 {
+   /**
+     * @brief Unique packet ID for DHKeyExchangeRequestPacket.
+     */
     constexpr UniquePacketID DHKeyExchangeRequestPacketID = CreatePacketID(PacketSubsystemCrypto, 0x0000);
+
+    /**
+     * @brief Unique packet ID for DHKeyExchangeResponsePacket.
+     */
     constexpr UniquePacketID DHKeyExchangeResponsePacketID = CreatePacketID(PacketSubsystemCrypto, 0x0001);
 
+    /**
+     * @brief Packet for Diffie-Hellman key exchange request.
+     */
     class DHKeyExchangeRequestPacket : public DerivedPacket<class DHKeyExchangeRequestPacket> {
     public:
         static constexpr UniquePacketID static_type = DHKeyExchangeRequestPacketID;
@@ -26,11 +36,20 @@ namespace node_system::packet::crypto
         }
     };
 
+    /**
+     * @brief Packet for Diffie-Hellman key exchange response.
+     */
     class DHKeyExchangeResponsePacket : public DerivedPacket<class DHKeyExchangeResponsePacket> {
     public:
         static constexpr UniquePacketID static_type = DHKeyExchangeResponsePacketID;
         static constexpr float time_to_live = 120.0f;
         [[nodiscard]] Permission get_permission() const override { return Permission::ANY; }
+        
+        /**
+         * @brief Calculate the hash of the packet's contents.
+         *
+         * @return The calculated hash of the packet's contents.
+         */
         [[nodiscard]] node_system::crypto::Hash get_hash() const
         {
             ByteArray arr;
@@ -56,6 +75,9 @@ namespace node_system::packet::crypto
         }
     };
     
+    /**
+     * @brief Register deserializers for DHKeyExchangeRequestPacket and DHKeyExchangeResponsePacket.
+     */
     inline void RegisterDeserializers()
     {
         node_system::packet::PacketFactory::RegisterDeserializer<DHKeyExchangeRequestPacket>();

@@ -26,30 +26,60 @@ std::string bytes_to_hex_str(ByteView const byte_view)
     }
     return rv;
 }
-/*
-boost::asio::awaitable<bool> EncryptionHandlerServer(
-    boost::asio::io_context& io, 
-    PacketDispatcher& dispatcher, 
-    std::unique_ptr<DHKeyExchangeRequestPacket> exchange_request)
-{
-    if(valid(exchange_request))
-    {
-        co_spawn(io, [](std::unique_ptr<DHKeyExchangeRequestPacket> exchange_request) __lambda_force_inline 
-            -> boost::asio::awaitable<void>
-        {
-            co_await 
-        })
-        co_return true;
-    }
-    else
-    {
-        co_return false;
-    }
-    
-    // continue processing the packet
-    std::shared_ptr<node_system::Session> connection;
 
-}*/
+boost::asio::awaitable<void> encryption_handler_server(
+    std::shared_ptr<PacketDispatcher>& dispatcher, 
+    std::shared_ptr<Session>& connection, 
+    ECDSA::Signer &signer,
+    std::unique_ptr<packet::crypto::DHKeyExchangeRequestPacket> exchange_request)
+{
+    if(!exchange_request)
+    {
+        return;
+    }
+    spdlog::info("Received encryption request packet");
+    DiffieHellmanHelper dh{};
+    packet::crypto::DHKeyExchangeResponsePacket response_packet;
+    response_packet.public_key = dh.get_public_key();
+    
+    std::mt19937_64 rng(std::random_device{}());
+
+    response_packet.salt = ByteArray{ 8 };
+
+    std::generate(response_packet.salt.begin(), response_packet.salt.end(),
+    [&rng]() -> std::byte
+    {
+        return static_cast<std::byte>(
+            static_cast<std::uint8_t>(std::uniform_int_distribution<uint16_t>(0, 255)(rng))
+        );
+    });
+    
+    response_packet.n_rounds = 5 + static_cast<int>(std::chi_squared_distribution<float>(2)(rng));
+    response_packet.n_rounds = std::min(response_packet.n_rounds, 5);
+    response_packet.n_rounds = std::max(response_packet.n_rounds, 20);
+
+    response_packet.signature = signer.sign_hash(response_packet.get_hash());
+
+    ByteArray shared_secret = dh.get_shared_secret(exchange_request->public_key);
+    shared_secret.append(response_packet.salt);
+    std::cout << "Computed shared secret: " << bytes_to_hex_str(shared_secret) << std::endl;
+    const Hash shared_key = SHA::ComputeHash(shared_secret, Hash::HashType::SHA256);
+    std::cout << "Computed shared key: " << bytes_to_hex_str(shared_key.hash_value) << std::endl;
+
+    connection->send_packet(response_packet);
+    connection->setup_encryption(shared_key.hash_value, response_packet.salt, static_cast<uint16_t>(response_packet.n_rounds));
+}
+
+
+void process_echo(
+    std::shared_ptr<node_system::Session> connection,
+    std::unique_ptr<node_system::packet::network::EchoPacket> &&echo)
+{
+    node_system::packet::network::EchoPacket response;
+    response.echo_message = std::to_string(std::stoi(echo->echo_message) + 1);
+    connection->send_packet(response);
+    spdlog::info("Received message: {}", echo->echo_message);
+}
 
 
 
@@ -70,49 +100,6 @@ public:
 private:
     boost::asio::awaitable<void> setup_encryption_for_session(std::shared_ptr<node_system::Session> connection, boost::asio::io_context& io)
     {
-        while (connection->alive())
-        {
-            std::unique_ptr<Packet> packet = co_await connection->pop_packet_async(io);
-            using namespace packet::crypto;
-            if (packet == nullptr || packet->type != DHKeyExchangeRequestPacketID)
-            {
-                spdlog::warn("Expected encryption request packet, received: {}", packet->type);
-                continue;
-            }
-            spdlog::info("Received encryption request packet");
-
-            DHKeyExchangeRequestPacket& dh_packet = *reinterpret_cast<DHKeyExchangeRequestPacket*>(packet.get());
-            DiffieHellmanHelper dh{};
-            DHKeyExchangeResponsePacket response_packet;
-            response_packet.public_key = dh.get_public_key();
-
-            std::mt19937_64 rng(std::random_device{}());
-
-            response_packet.salt = ByteArray{ 8 };
-
-            std::generate(response_packet.salt.begin(), response_packet.salt.end(),
-                [&rng]() -> std::byte
-                {
-                    return static_cast<std::byte>(
-                        static_cast<std::uint8_t>(std::uniform_int_distribution<uint16_t>(0, 255)(rng))
-                        );
-                });
-            response_packet.n_rounds = 5 + static_cast<int>(std::chi_squared_distribution<float>(2)(rng));
-            response_packet.n_rounds = std::min(response_packet.n_rounds, 5);
-            response_packet.n_rounds = std::max(response_packet.n_rounds, 20);
-
-            response_packet.signature = signer_->sign_hash(response_packet.get_hash());
-
-            ByteArray shared_secret = dh.get_shared_secret(dh_packet.public_key);
-            shared_secret.append(response_packet.salt);
-            std::cout << "Computed shared secret: " << bytes_to_hex_str(shared_secret) << std::endl;
-            const Hash shared_key = SHA::ComputeHash(shared_secret, Hash::HashType::SHA256);
-            std::cout << "Computed shared key: " << bytes_to_hex_str(shared_key.hash_value) << std::endl;
-
-            connection->send_packet(response_packet);
-            connection->setup_encryption(shared_key.hash_value, response_packet.salt, static_cast<uint16_t>(response_packet.n_rounds));
-            break;
-        }
         {
             std::unique_lock lock{ connection_access };
             connections_.push_back(connection);
@@ -121,26 +108,7 @@ private:
     }
     boost::asio::awaitable<void> process_packets(std::shared_ptr<node_system::Session> connection, boost::asio::io_context& io)
     {
-        using namespace packet::network;
-        while (connection->alive())
-        {
-            std::unique_ptr<node_system::Packet> packet = co_await connection->pop_packet_async(io);
-
-            if (packet)
-            {
-                if (packet->type == EchoPacketID)
-                {
-                    EchoPacket& msg = *reinterpret_cast<EchoPacket*>(packet.get());
-                    spdlog::info("Received message: {}", msg.echo_message);
-                    msg.echo_message = std::to_string(std::stoi(msg.echo_message) + 1);
-                    connection->send_packet(msg);
-                }
-                else
-                {
-                    std::cout << "Received unknown packet type: " << packet->type;
-                }
-            }
-        }
+       
     }
     void do_accept() {
         acceptor_.async_accept(

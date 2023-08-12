@@ -12,9 +12,17 @@
 
 namespace node_system::crypto
 {
+    /**
+     * @class DiffieHellmanHelper
+     * @brief Provides utility functions for Diffie-Hellman key exchange.
+     */
     class DiffieHellmanHelper : utils::non_copyable_non_movable
     {
     public:
+    
+        /**
+         * @brief Constructs a DiffieHellmanHelper object and generates DH parameters and keys.
+         */
         DiffieHellmanHelper()
         {
             EVP_PKEY_WRAPPER params;
@@ -38,6 +46,10 @@ namespace node_system::crypto
             pubkey_.reset(pubkey);
         }
 
+        /**
+         * @brief Retrieves the public key as a byte array.
+         * @return A ByteArray containing the public key.
+         */
         ByteArray get_public_key() const
         {
             BIO_WRAPPER bio{ BIO_new(BIO_s_mem()) };
@@ -52,6 +64,11 @@ namespace node_system::crypto
             return public_key;
         }
 
+        /**
+         * @brief Computes the shared secret key using the peer's public key.
+         * @param peer_key_bytes The byte representation of the peer's public key.
+         * @return A ByteArray containing the computed shared secret.
+         */
         ByteArray get_shared_secret(const ByteView peer_key_bytes) const
         {
             EVP_PKEY_WRAPPER peer_key;
@@ -78,6 +95,6 @@ namespace node_system::crypto
         }
 
     private:
-        EVP_PKEY_WRAPPER pubkey_;
+        EVP_PKEY_WRAPPER pubkey_; /**< The generated public key. */
     };
 } // namespace node_system::crypto

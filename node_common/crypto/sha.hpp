@@ -11,6 +11,13 @@
 
 namespace node_system::crypto::SHA
 {
+    /**
+     * @brief Computes a hash value for the given data using the specified hash algorithm.
+     *
+     * @param data The data for which the hash is to be computed.
+     * @param hash_type The hash algorithm to use (SHA256, SHA384, or SHA512).
+     * @return A Hash object containing the computed hash value.
+     */
     [[nodiscard]] inline Hash ComputeHash(const ByteView data, const Hash::HashType hash_type)
     {
         ByteArray result;

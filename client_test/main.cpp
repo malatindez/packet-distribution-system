@@ -64,7 +64,7 @@ boost::asio::awaitable<void> setup_encryption_for_session(
     connection->send_packet(echo);
 }
 
-boost::asio::awaitable<void> process_echo(
+void process_echo(
     std::shared_ptr<node_system::Session> connection,
     std::unique_ptr<node_system::packet::network::EchoPacket> &&echo)
 {
@@ -72,7 +72,6 @@ boost::asio::awaitable<void> process_echo(
     response.echo_message = std::to_string(std::stoi(echo->echo_message) + 1);
     connection->send_packet(response);
     spdlog::info("Received message: {}", echo->echo_message);
-    co_return;
 }
 
 void workThread(boost::asio::io_context &ioContext)
@@ -102,10 +101,7 @@ int main()
         dispatcher->register_default_handler<EchoPacket>(
             [session, &io_context](std::unique_ptr<node_system::packet::network::EchoPacket> &&packet)
             {
-                co_spawn(io_context, [session, movedPacket = std::move(packet)]() mutable -> boost::asio::awaitable<void>
-                    {
-                        co_await process_echo(session, std::move(movedPacket));
-                    }, boost::asio::detached);
+                process_echo(session, std::move(packet));
             }
        );
         node_system::ByteArray public_key;

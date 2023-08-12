@@ -28,6 +28,12 @@ namespace node_system
         }
     }
 
+    Session::~Session()
+    {
+        packets_to_send_.consume_all([](ByteArray *value){ if (value != nullptr)  delete value; });
+        received_packets_.consume_all([](ByteArray *value){ if (value != nullptr) delete value; });
+    }
+    
     std::unique_ptr<Packet> Session::pop_packet_now()
     {
         if (const std::unique_ptr<ByteArray> packet_data = pop_packet_data();

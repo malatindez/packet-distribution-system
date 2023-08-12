@@ -5,12 +5,28 @@
 #include <openssl/aes.h>
 namespace node_system::crypto::AES
 {
+    /**
+     * @class AES256
+     * @brief Provides AES-256 encryption and decryption functionality using OpenSSL.
+     */
     class AES256 : utils::non_copyable_non_movable
     {
     public:
+        /**
+         * @brief The size of the encryption key in bytes.
+         */
         static constexpr uint32_t KEY_SIZE = 32;
+        /**
+         * @brief The size of the salt value in bytes.
+         */
         static constexpr uint32_t SALT_SIZE = 8;
 
+        /**
+         * @brief Constructor to initialize AES256 with a key and salt.
+         * @param input_key The encryption key.
+         * @param salt The salt value.
+         * @param n_rounds The number of encryption rounds (default is 5).
+         */
         AES256(const KeyView input_key, const ByteView salt, const int n_rounds = 5)
         {
             utils::AlwaysAssert(input_key.size() == 32, "Key size must be 32 bytes");
@@ -42,6 +58,11 @@ namespace node_system::crypto::AES
             EVP_CIPHER_CTX_init(decrypt_context_.get());
             EVP_DecryptInit_ex(decrypt_context_.get(), EVP_aes_256_cbc(), nullptr, key, iv);
         }
+        /**
+         * @brief Encrypts plaintext data using AES-256 CBC mode.
+         * @param plaintext The data to be encrypted.
+         * @return The encrypted ciphertext.
+         */
         [[nodiscard]] ByteArray encrypt(const ByteView plaintext) const
         {
             /* max ciphertext len for a n bytes of plaintext is n + AES_BLOCK_SIZE -1 bytes */
@@ -62,6 +83,12 @@ namespace node_system::crypto::AES
             ciphertext.resize(c_len + f_len);
             return ciphertext;
         }
+        
+        /**
+         * @brief Decrypts ciphertext data using AES-256 CBC mode.
+         * @param ciphertext The data to be decrypted.
+         * @return The decrypted plaintext.
+         */
         [[nodiscard]] ByteArray decrypt(const ByteView ciphertext) const
         {
             /* plaintext will always be equal to or lesser than length of ciphertext*/
@@ -81,7 +108,7 @@ namespace node_system::crypto::AES
         }
 
     private:
-        EVP_CIPHER_CTX_WRAPPER encrypt_context_;
-        EVP_CIPHER_CTX_WRAPPER decrypt_context_;
+        EVP_CIPHER_CTX_WRAPPER encrypt_context_; /**< Encryption context. */
+        EVP_CIPHER_CTX_WRAPPER decrypt_context_; /**< Decryption context. */
     };
 }

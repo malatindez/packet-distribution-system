@@ -2,11 +2,29 @@
 #include "../common/packet.hpp"
 namespace node_system::packet::network
 {
+    /**
+     * @brief Unique packet ID for PingPacket.
+     */
     constexpr UniquePacketID PingPacketID = CreatePacketID(PacketSubsystemNetwork, 0x0000);
+
+    /**
+     * @brief Unique packet ID for PongPacket.
+     */
     constexpr UniquePacketID PongPacketID = CreatePacketID(PacketSubsystemNetwork, 0x0001);
+
+    /**
+     * @brief Unique packet ID for MessagePacket.
+     */
     constexpr UniquePacketID MessagePacketID = CreatePacketID(PacketSubsystemNetwork, 0x0002);
+
+    /**
+     * @brief Unique packet ID for EchoPacket.
+     */
     constexpr UniquePacketID EchoPacketID = CreatePacketID(PacketSubsystemNetwork, 0x0003);
 
+    /**
+     * @brief Packet for sending a ping signal.
+     */
     class PingPacket : public DerivedPacket<class PingPacket> {
     public:
         static constexpr UniquePacketID static_type = PingPacketID;
@@ -21,6 +39,10 @@ namespace node_system::packet::network
         }
     };
 
+
+    /**
+     * @brief Packet for responding to a ping signal.
+     */
     class PongPacket : public DerivedPacket<class PongPacket> {
     public:
         static constexpr UniquePacketID static_type = PongPacketID;
@@ -35,6 +57,9 @@ namespace node_system::packet::network
         }
     };
     
+    /**
+     * @brief Packet for sending a text message.
+     */
     class MessagePacket : public DerivedPacket<class MessagePacket> {
     public:
         static constexpr UniquePacketID static_type = MessagePacketID;
@@ -50,6 +75,9 @@ namespace node_system::packet::network
         }
     };
     
+    /**
+     * @brief Packet for echoing a received message.
+     */
     class EchoPacket : public DerivedPacket<class EchoPacket> {
     public:
         static constexpr UniquePacketID static_type = EchoPacketID;
@@ -66,6 +94,9 @@ namespace node_system::packet::network
     };
 
 
+    /**
+     * @brief Register deserializers for network packets.
+     */
     inline void RegisterDeserializers()
     {
         node_system::packet::PacketFactory::RegisterDeserializer<PingPacket>();

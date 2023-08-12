@@ -1,18 +1,29 @@
 #pragma once
 #include "../common/packet.hpp"
+
 namespace node_system::packet::node
 {
-    constexpr UniquePacketID NodeInfoRequestPacketID =  CreatePacketID(PacketSubsystemNode,0x0000);
-    constexpr UniquePacketID NodeInfoResponsePacketID =  CreatePacketID(PacketSubsystemNode,0x0001);
-    
+    /**
+     * @brief Unique packet ID for NodeInfoRequestPacket.
+     */
+    constexpr UniquePacketID NodeInfoRequestPacketID = CreatePacketID(PacketSubsystemNode, 0x0000);
+
+    /**
+     * @brief Unique packet ID for NodeInfoResponsePacket.
+     */
+    constexpr UniquePacketID NodeInfoResponsePacketID = CreatePacketID(PacketSubsystemNode, 0x0001);
+
+    /**
+     * @brief Packet for requesting information from a node.
+     */
     class NodeInfoRequestPacket : public DerivedPacket<class NodeInfoRequestPacket> {
     public:
         static constexpr UniquePacketID static_type = NodeInfoRequestPacketID;
         static constexpr float time_to_live = 5.0f;
         [[nodiscard]] Permission get_permission() const override { return Permission::ANY; }
 
-        // TODO:
-        // implement
+        // TODO: Add implementation details
+
     private:
         friend class boost::serialization::access;
         template<class Archive>
@@ -21,13 +32,17 @@ namespace node_system::packet::node
         }
     };
 
+    /**
+     * @brief Packet containing information about a node in response to a request.
+     */
     class NodeInfoResponsePacket : public DerivedPacket<class NodeInfoResponsePacket> {
     public:
         static constexpr UniquePacketID static_type = NodeInfoResponsePacketID;
         static constexpr float time_to_live = 5.0f;
         [[nodiscard]] Permission get_permission() const override { return Permission::L2_CORE_NODE; }
-        // TODO:
-        // implement
+
+        // TODO: Add implementation details
+
     private:
         friend class boost::serialization::access;
         template<class Archive>
@@ -35,7 +50,10 @@ namespace node_system::packet::node
             ar& boost::serialization::base_object<DerivedPacket<class NodeInfoResponsePacket>>(*this);
         }
     };
-    
+
+    /**
+     * @brief Register deserializers for node packets.
+     */
     inline void RegisterDeserializers()
     {
         node_system::packet::PacketFactory::RegisterDeserializer<NodeInfoRequestPacket>();
