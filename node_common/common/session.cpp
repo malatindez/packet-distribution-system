@@ -30,73 +30,69 @@ namespace node_system
 
     std::unique_ptr<Packet> Session::pop_packet_now()
     {
-        spdlog::debug("Attempting to pop a packet immediately.");
-
         if (const std::unique_ptr<ByteArray> packet_data = pop_packet_data();
             packet_data)
         {
             spdlog::debug("Successfully retrieved packet data.");
-
-            if (aes_)
+            
+            if(!aes_ && packet_data->at(0) != std::byte{0})
+            {
+                // TODO: cache packets that are encrypted till aes_ is initialized. Add timeouts for that packets.
+                // Right now we just skip them, and it might not be okay.
+                spdlog::error("Cannot decrypt packet without an instance of aes_. Skipping.");
+                return nullptr;
+            }
+            if (aes_ && packet_data->at(0) != std::byte{0})
             {
                 spdlog::debug("Decrypting packet data...");
-                const ByteArray plain = decrypt(*packet_data);
+                const ByteArray plain = decrypt(packet_data->view(1));
                 const uint32_t packet_type = bytes_to_uint32(plain.view(0, 4));
                 spdlog::debug("Decrypted packet type: {}", packet_type);
                 return packet::PacketFactory::Deserialize(plain.view(4), packet_type);
             }
 
-            const uint32_t packet_type = bytes_to_uint32(packet_data->view(0, 4));
+            const uint32_t packet_type = bytes_to_uint32(packet_data->view(1, 4));
             spdlog::debug("Packet type: {}", packet_type);
-            return packet::PacketFactory::Deserialize(packet_data->view(4), packet_type);
+            return packet::PacketFactory::Deserialize(packet_data->view(5), packet_type);
         }
-
-        spdlog::debug("No packet data available.");
         return nullptr;
     }
 
     boost::asio::awaitable<std::unique_ptr<Packet>> Session::pop_packet_async(boost::asio::io_context &io)
     {
-        spdlog::debug("Async packet popping initiated.");
+        spdlog::trace("Async packet popping initiated.");
 
         ExponentialBackoffUs backoff(std::chrono::microseconds(1), std::chrono::microseconds(1000), 2, 0.1);
         while (this->alive_)
         {
-            spdlog::debug("Attempting to pop a packet asynchronously...");
-
             std::unique_ptr<Packet> packet = pop_packet_now();
 
             if (packet)
             {
-                spdlog::debug("Successfully popped a packet asynchronously.");
+                spdlog::trace("Successfully popped a packet asynchronously.");
                 co_return packet;
             }
-
-            spdlog::debug("No packet available, waiting for {} microseconds.", backoff.get_current_delay().count());
 
             boost::asio::steady_timer timer(io, backoff.get_current_delay());
             co_await timer.async_wait(boost::asio::use_awaitable);
             backoff.increase_delay();
         }
 
-        spdlog::debug("Async packet popping stopped, session is not alive.");
+        spdlog::error("Async packet popping stopped, session is not alive.");
         co_return nullptr;
     }
 
     std::unique_ptr<ByteArray> Session::pop_packet_data() noexcept
     {
-        spdlog::debug("Popping packet data.");
-
         ByteArray *packet = nullptr;
         received_packets_.pop(packet);
 
         if (packet)
         {
-            spdlog::debug("Successfully popped packet data.");
+            spdlog::trace("Successfully popped packet data.");
             return std::unique_ptr<ByteArray>(packet);
         }
 
-        spdlog::debug("No packet data available.");
         return nullptr;
     }
 
@@ -137,14 +133,13 @@ namespace node_system
             catch (std::bad_weak_ptr &)
             {
                 it++;
-                spdlog::debug("Failed to retrieve shared pointer, iteration: {}", it);
             }
             boost::asio::steady_timer timer(io, backoff.get_current_delay());
             co_await timer.async_wait(boost::asio::use_awaitable);
             backoff.increase_delay();
-            if (it >= 100 && it % 20 == 0)
+            if (it >= 50 && it % 20 == 0)
             {
-                spdlog::error("Failed to retrieve pointer {} times", it);
+                spdlog::error("Failed to retrieve shared pointer, iteration: {}", it);
             }
         } while (it <= 200);
         spdlog::error("Exceeded maximum attempts to retrieve shared pointer");
@@ -166,7 +161,7 @@ namespace node_system
         const uint32_t kMaximumDataToSendSize = 1024 * 1024 * 1;
         data_to_send.reserve(kDefaultDataToSendSize);
 
-        spdlog::debug("Preparing to retrieve shared pointer...");
+        spdlog::trace("Preparing to retrieve shared pointer...");
         std::shared_ptr<Session> session_lock = co_await get_shared_ptr(io);
         if (session_lock == nullptr)
         {
@@ -181,7 +176,7 @@ namespace node_system
             if (!packets_to_send_.empty() && !writing)
             {
                 writing = true;
-                spdlog::debug("Starting data preparation and writing process...");
+                spdlog::info("Starting data preparation and writing process...");
 
                 data_to_send.clear();
                 if (data_to_send.capacity() >= kMaximumDataToSendSize)
@@ -200,7 +195,7 @@ namespace node_system
                     delete packet;
                 }
 
-                spdlog::debug("Sending data...");
+                spdlog::trace("Sending data...");
                 async_write(socket_, boost::asio::buffer(data_to_send.as<char>(), data_to_send.size()),
                             [&](const boost::system::error_code ec, [[maybe_unused]] std::size_t length)
                             {
@@ -212,7 +207,7 @@ namespace node_system
                                 }
                                 else
                                 {
-                                    spdlog::debug("Data sent successfully");
+                                    spdlog::trace("Data sent successfully");
                                 }
                             });
 
@@ -220,7 +215,6 @@ namespace node_system
                 continue;
             }
 
-            spdlog::debug("Waiting for the next write operation...");
             boost::asio::steady_timer timer(io, backoff.get_current_delay());
             co_await timer.async_wait(boost::asio::use_awaitable);
             backoff.increase_delay();
@@ -244,12 +238,13 @@ namespace node_system
         {
             if (buffer_.size() >= 4)
             {
-                spdlog::debug("Buffer size is sufficient for a packet...");
+                spdlog::trace("Buffer size is sufficient for a packet...");
 
-                ByteArray packet_size_data;
-                read_bytes_to(packet_size_data, 4);
-                const int64_t packet_size = bytes_to_uint32(packet_size_data);
-                spdlog::debug("Read packet size: {}", packet_size);
+                ByteArray packet_header;
+                read_bytes_to(packet_header, 4);
+                const int64_t packet_size = bytes_to_uint32(packet_header);
+
+                spdlog::trace("Read packet size: {}", packet_size);
 
                 // TODO: add a system that ensures that packet data size is correct.
                 // TODO: handle exception, and if packet size is too big we need to do something about it.
@@ -260,36 +255,34 @@ namespace node_system
                     boost::asio::steady_timer timer(io, backoff.get_current_delay());
                     co_await timer.async_wait(boost::asio::use_awaitable);
                     backoff.increase_delay();
-                    spdlog::debug("Waiting for buffer to reach packet size...");
+                    spdlog::trace("Waiting for buffer to reach packet size...");
                 }
 
                 if (static_cast<int64_t>(buffer_.size()) < packet_size)
                 // While loop waits until requirement is satisfied, so if it's false then alive_ is false and session is dead, so we won't get any data anymore
                 {
-                    spdlog::debug("Buffer still not sufficient, breaking out of loop...");
+                    spdlog::error("Buffer still not sufficient, breaking out of loop...");
                     break;
                 }
 
                 ByteArray *packet_data = new ByteArray;
                 read_bytes_to(*packet_data, packet_size);
-                spdlog::debug("Read packet data with size: {}", packet_size);
+                spdlog::trace("Read packet data with size: {}", packet_size);
 
                 while (!received_packets_.push(packet_data))
                 {
                     boost::asio::steady_timer timer(io, std::chrono::microseconds(1000));
                     co_await timer.async_wait(boost::asio::use_awaitable);
-                    spdlog::debug("Waiting to push packet data to received_packets_...");
+                    spdlog::trace("Waiting to push packet data to received_packets_...");
                 }
 
                 backoff.decrease_delay();
-                spdlog::debug("Decreased backoff delay.");
                 continue;
             }
 
             boost::asio::steady_timer timer(io, backoff.get_current_delay());
             co_await timer.async_wait(boost::asio::use_awaitable);
             backoff.increase_delay();
-            spdlog::debug("Waiting with backoff for next iteration...");
         }
 
         spdlog::debug("Exiting async_packet_forger.");
@@ -316,30 +309,40 @@ namespace node_system
         while (alive_)
         {
             ByteArray *packet_data = nullptr;
+            spdlog::trace("Waiting for packet data...");
             while ((!bool(packet_receiver_) || !received_packets_.pop(packet_data)))
             {
                 if (!alive_)
                 {
-                    spdlog::debug("Session is no longer alive, exiting loop...");
+                    spdlog::warn("Session is no longer alive, exiting loop...");
                     break;
                 }
 
                 boost::asio::steady_timer timer(io, backoff.get_current_delay());
                 co_await timer.async_wait(boost::asio::use_awaitable);
                 backoff.increase_delay();
-                spdlog::debug("Waiting for packet data or backoff timeout...");
             }
+            spdlog::trace("Received packet data!");
 
             if (packet_data)
             {
-                if (aes_)
+                if(!aes_ && packet_data->at(0) != std::byte{0})
                 {
-                    const ByteArray plain = decrypt(*packet_data);
+                    // TODO: cache packets that are encrypted till aes_ is initialized. Add timeouts for that packets.
+                    // Right now we just skip them, and it might not be okay.
+                    spdlog::error("Cannot decrypt packet without an instance of aes_. Skipping.");
+                    delete packet_data;
+                    continue;
+                }
+
+                if (aes_ && packet_data->at(0) != std::byte{0})
+                {
+                    const ByteArray plain = decrypt(packet_data->view(1));
                     const uint32_t packet_type = bytes_to_uint32(plain.view(0, 4));
 
                     try
                     {
-                        spdlog::debug("Decrypting and deserializing packet data...");
+                        spdlog::trace("Decrypting and deserializing packet data...");
                         packet_receiver_(packet::PacketFactory::Deserialize(plain.view(4), packet_type));
                     }
                     catch (const std::exception &e)
@@ -349,12 +352,12 @@ namespace node_system
                 }
                 else
                 {
-                    const uint32_t packet_type = bytes_to_uint32(packet_data->view(0, 4));
+                    const uint32_t packet_type = bytes_to_uint32(packet_data->view(1, 4));
 
                     try
                     {
-                        spdlog::debug("Deserializing packet data...");
-                        packet_receiver_(packet::PacketFactory::Deserialize(packet_data->view(4), packet_type));
+                        spdlog::trace("Deserializing packet data...");
+                        packet_receiver_(packet::PacketFactory::Deserialize(packet_data->view(5), packet_type));
                     }
                     catch (const std::exception &e)
                     {
@@ -364,7 +367,6 @@ namespace node_system
 
                 delete packet_data;
                 backoff.decrease_delay();
-                spdlog::debug("Decreased backoff delay.");
             }
         }
 

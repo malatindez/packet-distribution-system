@@ -66,10 +66,11 @@ boost::asio::awaitable<void> setup_encryption_for_session(
 
 boost::asio::awaitable<void> process_echo(
     std::shared_ptr<node_system::Session> connection,
-    std::unique_ptr<node_system::packet::network::EchoPacket> echo)
+    std::unique_ptr<node_system::packet::network::EchoPacket> &&echo)
 {
     node_system::packet::network::EchoPacket response;
     response.echo_message = std::to_string(std::stoi(echo->echo_message) + 1);
+    connection->send_packet(response);
     spdlog::info("Received message: {}", echo->echo_message);
     co_return;
 }
@@ -81,7 +82,7 @@ void workThread(boost::asio::io_context &ioContext)
 
 int main()
 {
-    spdlog::set_level(spdlog::level::trace);
+    spdlog::set_level(spdlog::level::debug);
     node_system::packet::crypto::RegisterDeserializers();
     node_system::packet::network::RegisterDeserializers();
     node_system::packet::node::RegisterDeserializers();
@@ -98,7 +99,15 @@ int main()
         std::shared_ptr<node_system::PacketDispatcher> dispatcher = std::make_shared<node_system::PacketDispatcher>(io_context);
         session->SetPacketReceiver([&dispatcher](std::unique_ptr<node_system::Packet> &&packet) __lambda_force_inline
                                    { dispatcher->enqueue_packet(std::move(packet)); });
-
+        dispatcher->register_default_handler<EchoPacket>(
+            [session, &io_context](std::unique_ptr<node_system::packet::network::EchoPacket> &&packet)
+            {
+                co_spawn(io_context, [session, movedPacket = std::move(packet)]() mutable -> boost::asio::awaitable<void>
+                    {
+                        co_await process_echo(session, std::move(movedPacket));
+                    }, boost::asio::detached);
+            }
+       );
         node_system::ByteArray public_key;
         std::ifstream public_key_file("core_public.pem");
         // count amount of bytes in file

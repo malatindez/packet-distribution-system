@@ -27,7 +27,8 @@ namespace node_system
 {
     using PacketReceiverFn = std::function<void(std::unique_ptr<Packet> &&)>;
     /**
-     * @brief To correctly destroy this object you need to call Destroy function, because coroutines share the object from this.
+     * @brief Represents a network session for sending and receiving packets.
+     * @details To correctly destroy this object, you need to call Destroy function, because coroutines share the object from this.
      */
     class Session : public utils::non_copyable_non_movable, public std::enable_shared_from_this<Session>
     {
@@ -41,7 +42,7 @@ namespace node_system
         /**
          * @brief Sends any packet derived from DerivedPacket through the network.
          * 
-         * @tparam T final packet type. 
+         * @tparam T Final packet type. 
          * (Template functions cannot be overriden, we need to call serialize from the furthest child.)
          * 
          * @note Blockable until packets_to_send_ can retrieve the value.
@@ -65,7 +66,8 @@ namespace node_system
             {
                 buffer = encrypt(buffer);
             }
-
+            // byte to check if connection is secured or not.
+            buffer.insert(buffer.begin(), aes_ ? std::byte{1} : std::byte{0});
             ByteArray *value = new ByteArray{ std::move(buffer) };
             ExponentialBackoffUs backoff(std::chrono::microseconds(1), std::chrono::microseconds(1000), 2, 1, 0.1);
             while (!packets_to_send_.push(value) || !alive_)
@@ -110,8 +112,13 @@ namespace node_system
 
         [[nodiscard]] bool secured() const noexcept { return aes_ != nullptr; }
         [[nodiscard]] bool is_closed() const noexcept { return !alive_; }
-
-        // Set the callback which will handle received forget packets as vector
+        [[nodiscard]] bool alive() const noexcept { return alive_; }
+         /**
+         * @brief Sends a packet through the network.
+         * @tparam T Final packet type.
+         * @param packet_arg Packet value.
+         * @return true if the session successfully sent the packet, false if the session is closed.
+         */
         void SetPacketReceiver(PacketReceiverFn const receiver)
         {
             std::lock_guard guard{packet_receiver_mutex_};
@@ -157,7 +164,7 @@ namespace node_system
          * @param data input plaintext
          * @return ByteArray output ciphertext
          */
-        [[nodiscard]] ByteArray encrypt(const ByteArray& data) const
+        [[nodiscard]] ByteArray encrypt(const ByteView data) const
         {
             return aes_->encrypt(data);
         }
@@ -169,7 +176,7 @@ namespace node_system
          * @param data input ciphertext
          * @return ByteArray output plaintext
          */
-        [[nodiscard]] ByteArray decrypt(const ByteArray& data) const
+        [[nodiscard]] ByteArray decrypt(const ByteView data) const
         {
             return aes_->decrypt(data);
         }

@@ -70,11 +70,11 @@ public:
 private:
     boost::asio::awaitable<void> setup_encryption_for_session(std::shared_ptr<node_system::Session> connection, boost::asio::io_context& io)
     {
-        while (true)
+        while (connection->alive())
         {
             std::unique_ptr<Packet> packet = co_await connection->pop_packet_async(io);
             using namespace packet::crypto;
-            if (packet->type != DHKeyExchangeRequestPacketID)
+            if (packet == nullptr || packet->type != DHKeyExchangeRequestPacketID)
             {
                 spdlog::warn("Expected encryption request packet, received: {}", packet->type);
                 continue;
@@ -122,22 +122,17 @@ private:
     boost::asio::awaitable<void> process_packets(std::shared_ptr<node_system::Session> connection, boost::asio::io_context& io)
     {
         using namespace packet::network;
-        {
-            MessagePacket msg;
-            msg.message = "0";
-            connection->send_packet(msg);
-        }
-        while (true)
+        while (connection->alive())
         {
             std::unique_ptr<node_system::Packet> packet = co_await connection->pop_packet_async(io);
 
             if (packet)
             {
-                if (packet->type == MessagePacketID)
+                if (packet->type == EchoPacketID)
                 {
-                    MessagePacket& msg = *reinterpret_cast<MessagePacket*>(packet.get());
-                    std::cout << "Received message: " << msg.message << std::endl;
-                    msg.message = std::to_string(std::stoi(msg.message) + 1);
+                    EchoPacket& msg = *reinterpret_cast<EchoPacket*>(packet.get());
+                    spdlog::info("Received message: {}", msg.echo_message);
+                    msg.echo_message = std::to_string(std::stoi(msg.echo_message) + 1);
                     connection->send_packet(msg);
                 }
                 else
@@ -176,7 +171,7 @@ void workThread(boost::asio::io_context& ioContext) {
 
 
 int main() {
-    spdlog::set_level(spdlog::level::trace);
+    spdlog::set_level(spdlog::level::debug);
     using namespace node_system;
     using namespace crypto;
 
