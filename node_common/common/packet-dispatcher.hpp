@@ -91,7 +91,8 @@ namespace node_system
          * @param io_context The io_context to associate with the dispatcher.
          */
         PacketDispatcher(boost::asio::io_context &io_context)
-            : unprocessed_packets_input_strand_{io_context},
+            : io_context_{io_context},
+              unprocessed_packets_input_strand_{io_context},
               promise_map_input_strand_{io_context},
               promise_filter_map_input_strand_{io_context},
               default_handlers_input_strand_{io_context}
@@ -315,7 +316,7 @@ namespace node_system
         {
             ExponentialBackoffUs backoff{
                 std::chrono::microseconds(1),
-                std::chrono::microseconds(1000),
+                std::chrono::microseconds(500),
                 2, 32, 0.1};
             utils::SteadyTimer timer;
             float min_handler_timestamp = std::numeric_limits<float>::max();
@@ -340,7 +341,8 @@ namespace node_system
                     }
 
                     // Introduce delay and increase it using exponential backoff strategy
-                    boost::asio::steady_timer(co_await boost::asio::this_coro::executor, backoff.get_current_delay());
+                    boost::asio::steady_timer async_timer(co_await boost::asio::this_coro::executor, backoff.get_current_delay());
+                    co_await async_timer.async_wait(boost::asio::use_awaitable);
                     backoff.increase_delay();
                     continue;
                 }
@@ -620,7 +622,7 @@ namespace node_system
             for (auto &future : futures)
             {
                 spdlog::trace("Waiting for futures to complete...");
-                while (future.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
+                while (future.wait_for(std::chrono::microseconds(100)) != std::future_status::ready)
                 {
                     co_await boost::asio::this_coro::executor;
                 }
@@ -629,6 +631,7 @@ namespace node_system
             }
             co_return rv;
         }
+        boost::asio::io_context &io_context_;
 
         boost::asio::io_context::strand unprocessed_packets_input_strand_;
         boost::asio::io_context::strand promise_map_input_strand_;
