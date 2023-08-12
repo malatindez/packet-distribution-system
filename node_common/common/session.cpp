@@ -33,7 +33,7 @@ namespace node_system
         if (const std::unique_ptr<ByteArray> packet_data = pop_packet_data();
             packet_data)
         {
-            spdlog::debug("Successfully retrieved packet data.");
+            spdlog::trace("Successfully retrieved packet data.");
             
             if(!aes_ && packet_data->at(0) != std::byte{0})
             {
@@ -44,15 +44,15 @@ namespace node_system
             }
             if (aes_ && packet_data->at(0) != std::byte{0})
             {
-                spdlog::debug("Decrypting packet data...");
+                spdlog::trace("Decrypting packet data...");
                 const ByteArray plain = decrypt(packet_data->view(1));
                 const uint32_t packet_type = bytes_to_uint32(plain.view(0, 4));
-                spdlog::debug("Decrypted packet type: {}", packet_type);
+                spdlog::trace("Decrypted packet type: {}", packet_type);
                 return packet::PacketFactory::Deserialize(plain.view(4), packet_type);
             }
 
             const uint32_t packet_type = bytes_to_uint32(packet_data->view(1, 4));
-            spdlog::debug("Packet type: {}", packet_type);
+            spdlog::trace("Packet type: {}", packet_type);
             return packet::PacketFactory::Deserialize(packet_data->view(5), packet_type);
         }
         return nullptr;
@@ -176,7 +176,7 @@ namespace node_system
             if (!packets_to_send_.empty() && !writing)
             {
                 writing = true;
-                spdlog::info("Starting data preparation and writing process...");
+                spdlog::trace("Starting data preparation and writing process...");
 
                 data_to_send.clear();
                 if (data_to_send.capacity() >= kMaximumDataToSendSize)
