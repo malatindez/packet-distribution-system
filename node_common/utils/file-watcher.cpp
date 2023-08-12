@@ -1,7 +1,7 @@
 #include "file-watcher.hpp"
 namespace utils
 {
-    void FileWatcher::AddPathToWatch(std::filesystem::path const& path, bool recursive)
+    void FileWatcher::AddPathToWatch(std::filesystem::path const &path, bool recursive)
     {
         if (std::filesystem::is_regular_file(path))
         {
@@ -10,7 +10,7 @@ namespace utils
         }
         if (recursive) [[likely]]
         {
-            for (auto& subpath : std::filesystem::recursive_directory_iterator(path))
+            for (auto &subpath : std::filesystem::recursive_directory_iterator(path))
             {
                 if (std::filesystem::is_regular_file(subpath))
                 {
@@ -20,7 +20,7 @@ namespace utils
         }
         else if (std::filesystem::is_directory(path))
         {
-            for (auto& subpath : std::filesystem::directory_iterator(path))
+            for (auto &subpath : std::filesystem::directory_iterator(path))
             {
                 file_map_[subpath.path()] = std::filesystem::last_write_time(subpath.path());
             }
@@ -29,7 +29,7 @@ namespace utils
     void FileWatcher::OnUpdate()
     {
         std::vector<std::filesystem::path> paths;
-        for (auto const& [file, ft] : file_map_)
+        for (auto const &[file, ft] : file_map_)
         {
             if (!std::filesystem::exists(file))
             {
@@ -48,4 +48,4 @@ namespace utils
             event_callback_(fce);
         }
     }
-}
+} // namespace utils

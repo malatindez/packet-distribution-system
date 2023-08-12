@@ -1,4 +1,4 @@
-#if defined (_WIN32)
+#if defined(_WIN32)
 #ifdef min
 #define UNDEFINED_MIN
 #pragma push_macro("min")

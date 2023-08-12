@@ -6,20 +6,23 @@
 
 namespace node_system::packet::crypto
 {
-   /**
+    /**
      * @brief Unique packet ID for DHKeyExchangeRequestPacket.
      */
-    constexpr UniquePacketID DHKeyExchangeRequestPacketID = CreatePacketID(PacketSubsystemCrypto, 0x0000);
+    constexpr UniquePacketID DHKeyExchangeRequestPacketID =
+        CreatePacketID(PacketSubsystemCrypto, 0x0000);
 
     /**
      * @brief Unique packet ID for DHKeyExchangeResponsePacket.
      */
-    constexpr UniquePacketID DHKeyExchangeResponsePacketID = CreatePacketID(PacketSubsystemCrypto, 0x0001);
+    constexpr UniquePacketID DHKeyExchangeResponsePacketID =
+        CreatePacketID(PacketSubsystemCrypto, 0x0001);
 
     /**
      * @brief Packet for Diffie-Hellman key exchange request.
      */
-    class DHKeyExchangeRequestPacket : public DerivedPacket<class DHKeyExchangeRequestPacket> {
+    class DHKeyExchangeRequestPacket : public DerivedPacket<class DHKeyExchangeRequestPacket>
+    {
     public:
         static constexpr UniquePacketID static_type = DHKeyExchangeRequestPacketID;
         static constexpr float time_to_live = 120.0f;
@@ -29,22 +32,25 @@ namespace node_system::packet::crypto
 
     private:
         friend class boost::serialization::access;
-        template<class Archive>
-        void serialize(Archive& ar, [[maybe_unused]] const unsigned int version) {
-            ar& boost::serialization::base_object<DerivedPacket<class DHKeyExchangeRequestPacket>>(*this);
-            ar& public_key;
+        template <class Archive>
+        void serialize(Archive &ar, [[maybe_unused]] const unsigned int version)
+        {
+            ar &boost::serialization::base_object<DerivedPacket<class DHKeyExchangeRequestPacket>>(
+                *this);
+            ar &public_key;
         }
     };
 
     /**
      * @brief Packet for Diffie-Hellman key exchange response.
      */
-    class DHKeyExchangeResponsePacket : public DerivedPacket<class DHKeyExchangeResponsePacket> {
+    class DHKeyExchangeResponsePacket : public DerivedPacket<class DHKeyExchangeResponsePacket>
+    {
     public:
         static constexpr UniquePacketID static_type = DHKeyExchangeResponsePacketID;
         static constexpr float time_to_live = 120.0f;
         [[nodiscard]] Permission get_permission() const override { return Permission::ANY; }
-        
+
         /**
          * @brief Calculate the hash of the packet's contents.
          *
@@ -53,8 +59,10 @@ namespace node_system::packet::crypto
         [[nodiscard]] node_system::crypto::Hash get_hash() const
         {
             ByteArray arr;
-            arr.append(public_key, salt, ByteArray::from_integral(boost::endian::little_to_native(static_type)));
-            return node_system::crypto::SHA::ComputeHash(arr, node_system::crypto::Hash::HashType::SHA256);
+            arr.append(public_key, salt,
+                       ByteArray::from_integral(boost::endian::little_to_native(static_type)));
+            return node_system::crypto::SHA::ComputeHash(
+                arr, node_system::crypto::Hash::HashType::SHA256);
         }
 
         ByteArray public_key;
@@ -63,18 +71,21 @@ namespace node_system::packet::crypto
 
         // Signature of the public key, salt and n_rounds.
         ByteArray signature;
+
     private:
         friend class boost::serialization::access;
-        template<class Archive>
-        void serialize(Archive& ar, [[maybe_unused]] const unsigned int version) {
-            ar& boost::serialization::base_object<DerivedPacket<class DHKeyExchangeResponsePacket>>(*this);
-            ar& public_key;
-            ar& signature;
-            ar& salt;
-            ar& n_rounds;
+        template <class Archive>
+        void serialize(Archive &ar, [[maybe_unused]] const unsigned int version)
+        {
+            ar &boost::serialization::base_object<DerivedPacket<class DHKeyExchangeResponsePacket>>(
+                *this);
+            ar &public_key;
+            ar &signature;
+            ar &salt;
+            ar &n_rounds;
         }
     };
-    
+
     /**
      * @brief Register deserializers for DHKeyExchangeRequestPacket and DHKeyExchangeResponsePacket.
      */
@@ -84,4 +95,4 @@ namespace node_system::packet::crypto
         node_system::packet::PacketFactory::RegisterDeserializer<DHKeyExchangeResponsePacket>();
     }
 
-}
+} // namespace node_system::packet::crypto

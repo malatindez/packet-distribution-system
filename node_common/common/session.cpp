@@ -4,8 +4,8 @@ namespace node_system
 {
     Session::Session(boost::asio::io_context &io, boost::asio::ip::tcp::socket &&socket)
         : socket_(std::move(socket)),
-          received_packets_{8192}, // Initialize received_packets_ with a buffer size of 8192
-          packets_to_send_{8192}   // Initialize packets_to_send_ with a buffer size of 8192
+          received_packets_{ 8192 }, // Initialize received_packets_ with a buffer size of 8192
+          packets_to_send_{ 8192 }   // Initialize packets_to_send_ with a buffer size of 8192
     {
         spdlog::debug("Session: Creating a new session");
 
@@ -20,35 +20,49 @@ namespace node_system
         }
 
         // Start asynchronous tasks for packet forging, sending, and sending packets concurrently
-        co_spawn(socket_.get_executor(), std::bind(&Session::async_packet_forger, this, std::ref(io)), boost::asio::detached);
-        co_spawn(socket_.get_executor(), std::bind(&Session::send_all, this, std::ref(io)), boost::asio::detached);
+        co_spawn(socket_.get_executor(),
+                 std::bind(&Session::async_packet_forger, this, std::ref(io)),
+                 boost::asio::detached);
+        co_spawn(socket_.get_executor(), std::bind(&Session::send_all, this, std::ref(io)),
+                 boost::asio::detached);
         for (size_t i = 0; i < 4; i++)
         {
-            co_spawn(socket_.get_executor(), std::bind(&Session::async_packet_sender, this, std::ref(io)), boost::asio::detached);
+            co_spawn(socket_.get_executor(),
+                     std::bind(&Session::async_packet_sender, this, std::ref(io)),
+                     boost::asio::detached);
         }
     }
 
     Session::~Session()
     {
-        packets_to_send_.consume_all([](ByteArray *value){ if (value != nullptr)  delete value; });
-        received_packets_.consume_all([](ByteArray *value){ if (value != nullptr) delete value; });
+        packets_to_send_.consume_all(
+            [](ByteArray *value)
+            {
+                if (value != nullptr)
+                    delete value;
+            });
+        received_packets_.consume_all(
+            [](ByteArray *value)
+            {
+                if (value != nullptr)
+                    delete value;
+            });
     }
-    
+
     std::unique_ptr<Packet> Session::pop_packet_now()
     {
-        if (const std::unique_ptr<ByteArray> packet_data = pop_packet_data();
-            packet_data)
+        if (const std::unique_ptr<ByteArray> packet_data = pop_packet_data(); packet_data)
         {
             spdlog::trace("Successfully retrieved packet data.");
-            
-            if(!aes_ && packet_data->at(0) != std::byte{0})
+
+            if (!aes_ && packet_data->at(0) != std::byte{ 0 })
             {
-                // TODO: cache packets that are encrypted till aes_ is initialized. Add timeouts for that packets.
-                // Right now we just skip them, and it might not be okay.
+                // TODO: cache packets that are encrypted till aes_ is initialized. Add timeouts for
+                // that packets. Right now we just skip them, and it might not be okay.
                 spdlog::error("Cannot decrypt packet without an instance of aes_. Skipping.");
                 return nullptr;
             }
-            if (aes_ && packet_data->at(0) != std::byte{0})
+            if (aes_ && packet_data->at(0) != std::byte{ 0 })
             {
                 spdlog::trace("Decrypting packet data...");
                 const ByteArray plain = decrypt(packet_data->view(1));
@@ -64,11 +78,13 @@ namespace node_system
         return nullptr;
     }
 
-    boost::asio::awaitable<std::unique_ptr<Packet>> Session::pop_packet_async(boost::asio::io_context &io)
+    boost::asio::awaitable<std::unique_ptr<Packet>>
+    Session::pop_packet_async(boost::asio::io_context &io)
     {
         spdlog::trace("Async packet popping initiated.");
 
-        ExponentialBackoffUs backoff(std::chrono::microseconds(1), std::chrono::microseconds(1000), 2, 0.1);
+        ExponentialBackoffUs backoff(std::chrono::microseconds(1), std::chrono::microseconds(1000),
+                                     2, 0.1);
         while (this->alive_)
         {
             std::unique_ptr<Packet> packet = pop_packet_now();
@@ -106,27 +122,34 @@ namespace node_system
     {
         spdlog::debug("Initiating async read from socket.");
 
-        boost::asio::async_read(socket_, buffer_, boost::asio::transfer_all(),
-                                [this](const boost::system::error_code ec, [[maybe_unused]] std::size_t length)
-                                {
-                                    if (ec)
-                                    {
-                                        spdlog::warn("Error reading message: {}", ec.message());
-                                        socket_.close();
-                                        alive_ = false;
-                                        packets_to_send_.consume_all([](ByteArray *value)
-                                                                     { if (value != nullptr) delete value; });
-                                    }
-                                    else
-                                    {
-                                        spdlog::info("Received total of {} bytes", length);
-                                    }
-                                });
+        boost::asio::async_read(
+            socket_, buffer_, boost::asio::transfer_all(),
+            [this](const boost::system::error_code ec, [[maybe_unused]] std::size_t length)
+            {
+                if (ec)
+                {
+                    spdlog::warn("Error reading message: {}", ec.message());
+                    socket_.close();
+                    alive_ = false;
+                    packets_to_send_.consume_all(
+                        [](ByteArray *value)
+                        {
+                            if (value != nullptr)
+                                delete value;
+                        });
+                }
+                else
+                {
+                    spdlog::info("Received total of {} bytes", length);
+                }
+            });
     }
 
-    boost::asio::awaitable<std::shared_ptr<Session>> Session::get_shared_ptr(boost::asio::io_context &io)
+    boost::asio::awaitable<std::shared_ptr<Session>>
+    Session::get_shared_ptr(boost::asio::io_context &io)
     {
-        ExponentialBackoffUs backoff(std::chrono::microseconds(1), std::chrono::microseconds(1000), 2, 32, 0.1);
+        ExponentialBackoffUs backoff(std::chrono::microseconds(1), std::chrono::microseconds(1000),
+                                     2, 32, 0.1);
 
         int it = 0;
         do
@@ -163,7 +186,8 @@ namespace node_system
         // If user somehow managed to send the packet of this size or bigger
         // we shrink the size back to kDefaultDataToSendSize.
         // If capacity of the vector is lower than this we will keep it's size.
-        // This is done solely so we don't consume a lot of memory per session if we send heavy packets from time to time.
+        // This is done solely so we don't consume a lot of memory per session if we send heavy
+        // packets from time to time.
         const uint32_t kMaximumDataToSendSize = 1024 * 1024 * 1;
         data_to_send.reserve(kDefaultDataToSendSize);
 
@@ -171,11 +195,13 @@ namespace node_system
         std::shared_ptr<Session> session_lock = co_await get_shared_ptr(io);
         if (session_lock == nullptr)
         {
-            spdlog::error("Couldn't retrieve shared pointer for session. Did you create the session using std::make_shared?");
+            spdlog::error("Couldn't retrieve shared pointer for session. Did you create the "
+                          "session using std::make_shared?");
             co_return;
         }
 
-        ExponentialBackoffUs backoff(std::chrono::microseconds(1), std::chrono::microseconds(1000), 2, 32, 0.1);
+        ExponentialBackoffUs backoff(std::chrono::microseconds(1), std::chrono::microseconds(1000),
+                                     2, 32, 0.1);
 
         while (alive_)
         {
@@ -191,7 +217,9 @@ namespace node_system
                 }
 
                 ByteArray *packet = nullptr;
-                for (int i = 0; (i < 1000 && data_to_send.size() < kDefaultDataToSendSize) && packets_to_send_.pop(packet); i++)
+                for (int i = 0; (i < 1000 && data_to_send.size() < kDefaultDataToSendSize) &&
+                                packets_to_send_.pop(packet);
+                     i++)
                 {
                     data_to_send.append(uint32_to_bytes(static_cast<uint32_t>(packet->size())));
                     data_to_send.append(*packet);
@@ -202,20 +230,21 @@ namespace node_system
                 }
 
                 spdlog::trace("Sending data...");
-                async_write(socket_, boost::asio::buffer(data_to_send.as<char>(), data_to_send.size()),
-                            [&](const boost::system::error_code ec, [[maybe_unused]] std::size_t length)
-                            {
-                                writing = false;
-                                data_to_send.clear();
-                                if (ec)
-                                {
-                                    spdlog::warn("Error sending message: {}", ec.message());
-                                }
-                                else
-                                {
-                                    spdlog::trace("Data sent successfully");
-                                }
-                            });
+                async_write(
+                    socket_, boost::asio::buffer(data_to_send.as<char>(), data_to_send.size()),
+                    [&](const boost::system::error_code ec, [[maybe_unused]] std::size_t length)
+                    {
+                        writing = false;
+                        data_to_send.clear();
+                        if (ec)
+                        {
+                            spdlog::warn("Error sending message: {}", ec.message());
+                        }
+                        else
+                        {
+                            spdlog::trace("Data sent successfully");
+                        }
+                    });
 
                 backoff.decrease_delay();
                 continue;
@@ -232,11 +261,13 @@ namespace node_system
     {
         spdlog::debug("Starting async_packet_forger...");
 
-        ExponentialBackoffUs backoff(std::chrono::microseconds(1), std::chrono::microseconds(1000), 2, 32, 0.1);
+        ExponentialBackoffUs backoff(std::chrono::microseconds(1), std::chrono::microseconds(1000),
+                                     2, 32, 0.1);
         std::shared_ptr<Session> session_lock = co_await get_shared_ptr(io);
         if (session_lock == nullptr)
         {
-            spdlog::error("Couldn't retrieve shared pointer for session. Did you create the session using std::make_shared?");
+            spdlog::error("Couldn't retrieve shared pointer for session. Did you create the "
+                          "session using std::make_shared?");
             co_return;
         }
 
@@ -253,8 +284,11 @@ namespace node_system
                 spdlog::trace("Read packet size: {}", packet_size);
 
                 // TODO: add a system that ensures that packet data size is correct.
-                // TODO: handle exception, and if packet size is too big we need to do something about it.
-                utils::AlwaysAssert(packet_size != 0 && packet_size < 1024ULL * 1024 * 1024 * 4, "The amount of bytes to read is too big. 4GB? What are you transfering? Anyways, it seems to be a bug.");
+                // TODO: handle exception, and if packet size is too big we need to do something
+                // about it.
+                utils::AlwaysAssert(packet_size != 0 && packet_size < 1024ULL * 1024 * 1024 * 4,
+                                    "The amount of bytes to read is too big. 4GB? What are you "
+                                    "transfering? Anyways, it seems to be a bug.");
 
                 while (static_cast<int64_t>(buffer_.size()) < packet_size && alive_)
                 {
@@ -265,7 +299,8 @@ namespace node_system
                 }
 
                 if (static_cast<int64_t>(buffer_.size()) < packet_size)
-                // While loop waits until requirement is satisfied, so if it's false then alive_ is false and session is dead, so we won't get any data anymore
+                // While loop waits until requirement is satisfied, so if it's false then alive_ is
+                // false and session is dead, so we won't get any data anymore
                 {
                     spdlog::error("Buffer still not sufficient, breaking out of loop...");
                     break;
@@ -298,17 +333,14 @@ namespace node_system
     {
         spdlog::debug("Starting async_packet_sender...");
 
-        ExponentialBackoffUs backoff(
-            std::chrono::microseconds(1),
-            std::chrono::microseconds(1000 * 10),
-            2,
-            64,
-            0.1);
+        ExponentialBackoffUs backoff(std::chrono::microseconds(1),
+                                     std::chrono::microseconds(1000 * 10), 2, 64, 0.1);
 
         std::shared_ptr<Session> session_lock = co_await get_shared_ptr(io);
         if (session_lock == nullptr)
         {
-            spdlog::error("Couldn't retrieve shared pointer for session. Did you create the session using std::make_shared?");
+            spdlog::error("Couldn't retrieve shared pointer for session. Did you create the "
+                          "session using std::make_shared?");
             co_return;
         }
 
@@ -332,16 +364,16 @@ namespace node_system
 
             if (packet_data)
             {
-                if(!aes_ && packet_data->at(0) != std::byte{0})
+                if (!aes_ && packet_data->at(0) != std::byte{ 0 })
                 {
-                    // TODO: cache packets that are encrypted till aes_ is initialized. Add timeouts for that packets.
-                    // Right now we just skip them, and it might not be okay.
+                    // TODO: cache packets that are encrypted till aes_ is initialized. Add timeouts
+                    // for that packets. Right now we just skip them, and it might not be okay.
                     spdlog::error("Cannot decrypt packet without an instance of aes_. Skipping.");
                     delete packet_data;
                     continue;
                 }
 
-                if (aes_ && packet_data->at(0) != std::byte{0})
+                if (aes_ && packet_data->at(0) != std::byte{ 0 })
                 {
                     const ByteArray plain = decrypt(packet_data->view(1));
                     const uint32_t packet_type = bytes_to_uint32(plain.view(0, 4));
@@ -349,7 +381,8 @@ namespace node_system
                     try
                     {
                         spdlog::trace("Decrypting and deserializing packet data...");
-                        packet_receiver_(packet::PacketFactory::Deserialize(plain.view(4), packet_type));
+                        packet_receiver_(
+                            packet::PacketFactory::Deserialize(plain.view(4), packet_type));
                     }
                     catch (const std::exception &e)
                     {
@@ -363,7 +396,8 @@ namespace node_system
                     try
                     {
                         spdlog::trace("Deserializing packet data...");
-                        packet_receiver_(packet::PacketFactory::Deserialize(packet_data->view(5), packet_type));
+                        packet_receiver_(
+                            packet::PacketFactory::Deserialize(packet_data->view(5), packet_type));
                     }
                     catch (const std::exception &e)
                     {
@@ -379,4 +413,4 @@ namespace node_system
         spdlog::debug("Exiting async_packet_sender.");
     }
 
-}
+} // namespace node_system

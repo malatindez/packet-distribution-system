@@ -57,6 +57,10 @@ if(MSVC)
   add_compile_options(/W4 /WX)
 
 endif()
+if (WIN32)
+  add_compile_definitions(_WIN32_WINNT=0x0A00)
+endif()
+
 
 function(target_set_output_directory TARGET)
 file(WRITE "${CMAKE_BINARY_DIR}/${TARGET}.vcxproj.user" "\

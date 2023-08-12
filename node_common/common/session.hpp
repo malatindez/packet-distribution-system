@@ -1,46 +1,47 @@
 #pragma once
+#include <algorithm>
+#include <boost/asio/awaitable.hpp>
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/detached.hpp>
-#include <boost/asio/awaitable.hpp>
+#include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/read.hpp>
+#include <boost/asio/spawn.hpp>
 #include <boost/asio/streambuf.hpp>
 #include <boost/asio/write.hpp>
-#include <boost/asio/ip/tcp.hpp>
 #include <boost/endian/conversion.hpp>
 #include <boost/range/begin.hpp>
 #include <boost/range/end.hpp>
-#include <boost/asio/spawn.hpp>
 #include <memory>
-#include <queue>
-#include <algorithm>
 #include <mutex>
+#include <queue>
 
 #include <boost/lockfree/queue.hpp>
 
-#include "packet.hpp"
 #include "backoffs.hpp"
 #include "crypto/aes.hpp"
+#include "packet.hpp"
 #include "utils/utils.hpp"
 #include "../include/spdlog.hpp"
-
 namespace node_system
 {
     using PacketReceiverFn = std::function<void(std::unique_ptr<Packet> &&)>;
     /**
      * @brief Represents a network session for sending and receiving packets.
-     * @details To correctly destroy this object, you need to call Destroy function, because coroutines share the object from this.
+     * @details To correctly destroy this object, you need to call Destroy function, because
+     * coroutines share the object from this.
      */
-    class Session : public utils::non_copyable_non_movable, public std::enable_shared_from_this<Session>
+    class Session : public utils::non_copyable_non_movable,
+                    public std::enable_shared_from_this<Session>
     {
     public:
         /**
          * @brief Constructor for the Session class.
-         * 
+         *
          * @param io The boost::asio::io_context used for I/O operations.
          * @param socket The boost::asio::ip::tcp::socket associated with the session.
          */
-        explicit Session(boost::asio::io_context& io, boost::asio::ip::tcp::socket&& socket);
-        
+        explicit Session(boost::asio::io_context &io, boost::asio::ip::tcp::socket &&socket);
+
         /**
          * @brief Destructor for the Session class.
          */
@@ -48,209 +49,212 @@ namespace node_system
 
         /**
          * @brief Sends any packet derived from DerivedPacket through the network.
-         * 
-         * @tparam T Final packet type. 
-         * (Template functions cannot be overriden, we need to call serialize from the furthest child.)
-         * 
+         *
+         * @tparam T Final packet type.
+         * (Template functions cannot be overriden, we need to call serialize from the furthest
+         * child.)
+         *
          * @note Blockable until packets_to_send_ can retrieve the value.
-         * 
+         *
          * @param packet_arg Packet value
          * @return true if session got the packet.
          * @return false if session was closed.
          */
-        template<typename T>
-        bool send_packet(const T& packet_arg) requires std::is_base_of_v<Packet, T>;
+        template <typename T>
+        bool send_packet(const T &packet_arg) requires std::is_base_of_v<Packet, T>;
 
         /**
          * @brief Returns the earliest acquired packet. If packet queue is empty, returns nullptr.
-         * 
-         * @warn If packet receiver is set through SetPacketReceiver there's no reason to call this function.
-         * Generally packets will just go through the receiver. 
-         * There's no ordering neither option to configure which packet you will receive.
-         * 
-         * @return std::unique_ptr<Packet> 
+         *
+         * @warn If packet receiver is set through SetPacketReceiver there's no reason to call this
+         * function. Generally packets will just go through the receiver. There's no ordering
+         * neither option to configure which packet you will receive.
+         *
+         * @return std::unique_ptr<Packet>
          */
         std::unique_ptr<Packet> pop_packet_now();
-        
+
         /**
          * Returns nullptr if socket has crashed.
-         * If not, it will wait until the packet is available and will return it as soon as possible.
-         * This function is threadsafe.
+         * If not, it will wait until the packet is available and will return it as soon as
+         * possible. This function is threadsafe.
          */
-        boost::asio::awaitable<std::unique_ptr<Packet>> pop_packet_async(boost::asio::io_context& io);
+        boost::asio::awaitable<std::unique_ptr<Packet>>
+        pop_packet_async(boost::asio::io_context &io);
 
         /**
          * @brief Checks if there are packets in the queue.
-         * 
+         *
          * @return true if there are packets in the queue, false otherwise.
          */
-        [[nodiscard]] constexpr bool has_packets() { return !received_packets_.empty(); }
-        
+        [[nodiscard]] inline bool has_packets() { return !received_packets_.empty(); }
+
         /**
          * @brief Checks if the session is secured using encryption.
-         * 
+         *
          * @return true if the session is secured, false otherwise.
          */
-        [[nodiscard]] constexpr bool secured() const noexcept { return aes_ != nullptr; }
-        
+        [[nodiscard]] inline bool secured() const noexcept { return aes_ != nullptr; }
+
         /**
          * @brief Checks if the session is closed.
-         * 
+         *
          * @return true if the session is closed, false otherwise.
          */
         [[nodiscard]] constexpr bool is_closed() const noexcept { return !alive_; }
-        
+
         /**
          * @brief Checks if the session is alive.
-         * 
+         *
          * @return true if the session is alive, false otherwise.
          */
         [[nodiscard]] constexpr bool alive() const noexcept { return alive_; }
 
-
         /**
          * @brief Sets up encryption for the session using AES256.
-         * 
+         *
          * @param key The encryption key.
          * @param salt The salt value.
          * @param n_rounds The number of encryption rounds.
          */
-        void setup_encryption(ByteArray key, ByteArray salt, short n_rounds) { aes_ = std::make_unique<crypto::AES::AES256>(key, salt, n_rounds); }
+        void setup_encryption(ByteArray key, ByteArray salt, short n_rounds)
+        {
+            aes_ = std::make_unique<crypto::AES::AES256>(key, salt, n_rounds);
+        }
 
         /**
          * @brief Sets the packet receiver for the session.
-         * 
+         *
          * @param receiver The function to be called when a packet is received.
          */
         void SetPacketReceiver(PacketReceiverFn const receiver)
         {
-            std::lock_guard guard{packet_receiver_mutex_};
+            std::lock_guard guard{ packet_receiver_mutex_ };
             packet_receiver_ = receiver;
         }
 
         /**
-         * @brief Coroutines use the shared pointer from this, so you need to explicitly call Destroy so alive_ is false. 
-         * This way coroutines can end and unlock the remaining instances of shared_ptr.
+         * @brief Coroutines use the shared pointer from this, so you need to explicitly call
+         * Destroy so alive_ is false. This way coroutines can end and unlock the remaining
+         * instances of shared_ptr.
          */
         void Destroy() { alive_ = false; }
 
     protected:
-    
         /**
          * @brief Pops the packet data from the received packets queue.
-         * 
+         *
          * @details This function retrieves the data of the earliest acquired packet from the queue.
-         * 
-         * @return A unique_ptr<ByteArray> containing the packet data, or nullptr if the queue is empty.
+         *
+         * @return A unique_ptr<ByteArray> containing the packet data, or nullptr if the queue is
+         * empty.
          */
         std::unique_ptr<ByteArray> pop_packet_data() noexcept;
+
     private:
-    
         /**
          * @brief Retrieves a shared pointer to the current session.
-         * 
+         *
          * @param io The boost::asio::io_context used for asynchronous operations.
          * @return A boost::asio::awaitable that resolves to a shared_ptr<Session>.
          */
-        boost::asio::awaitable<std::shared_ptr<Session>> get_shared_ptr(boost::asio::io_context& io);
-        
+        boost::asio::awaitable<std::shared_ptr<Session>>
+        get_shared_ptr(boost::asio::io_context &io);
+
         /**
          * @brief Initiates an asynchronous read operation from the socket to receive data.
-         * 
-         * @details This function asynchronously reads data from the socket into the internal buffer.
+         *
+         * @details This function asynchronously reads data from the socket into the internal
+         * buffer.
          */
         void receive_all();
-        
 
         /**
          * @brief Asynchronously sends all packets in the queue through the network.
-         * 
+         *
          * @param io The boost::asio::io_context used for asynchronous operations.
          */
-        boost::asio::awaitable<void> send_all(boost::asio::io_context& io);
-        
+        boost::asio::awaitable<void> send_all(boost::asio::io_context &io);
+
         /**
          * @brief Asynchronously forges new packets from the buffer.
-         * 
+         *
          * @param io The boost::asio::io_context used for asynchronous operations.
          */
-        boost::asio::awaitable<void> async_packet_forger(boost::asio::io_context& io);
+        boost::asio::awaitable<void> async_packet_forger(boost::asio::io_context &io);
         /**
          * @brief Asynchronously receives and processes incoming packets from the network.
-         * 
-         * @details This function continuously waits for incoming packets from the network and processes them.
-         * It decrypts and deserializes encrypted packets if encryption is enabled.
-         * If a valid packet receiver is set, it invokes the receiver's callback function to handle the received packet.
-         * 
+         *
+         * @details This function continuously waits for incoming packets from the network and
+         * processes them. It decrypts and deserializes encrypted packets if encryption is enabled.
+         * If a valid packet receiver is set, it invokes the receiver's callback function to handle
+         * the received packet.
+         *
          * @param io The boost::asio::io_context used for asynchronous operations.
          */
-        boost::asio::awaitable<void> async_packet_sender(boost::asio::io_context& io);
-        inline void read_bytes_to(ByteArray& byte_array, const size_t amount);
+        boost::asio::awaitable<void> async_packet_sender(boost::asio::io_context &io);
+        inline void read_bytes_to(ByteArray &byte_array, const size_t amount);
 
         /**
          * @brief Public method to encrypt bytearray using locally stored AES256 pointer.
-         * 
+         *
          * @note will throw if aes_ is nullptr
-         * 
+         *
          * @param data input plaintext
          * @return ByteArray output ciphertext
          */
-        [[nodiscard]] ByteArray encrypt(const ByteView data) const
-        {
-            return aes_->encrypt(data);
-        }
+        [[nodiscard]] ByteArray encrypt(const ByteView data) const { return aes_->encrypt(data); }
         /**
          * @brief Public method to decrypt bytearray using locally stored AES256 pointer.
-         * 
+         *
          * @note will throw if aes_ is nullptr
-         * 
+         *
          * @param data input ciphertext
          * @return ByteArray output plaintext
          */
-        [[nodiscard]] ByteArray decrypt(const ByteView data) const
-        {
-            return aes_->decrypt(data);
-        }
+        [[nodiscard]] ByteArray decrypt(const ByteView data) const { return aes_->decrypt(data); }
         /**
          * @brief Lock-free queue to store received packets that are waiting to be processed.
-         * @details Packets stored in this queue should be created using 'new'. After popping the pointer, 
-         *          you can either delete it manually or wrap it in smart pointers. 
-         *          Be sure to release the smart pointer before pushing it again, 
-         *          as failing to do so could lead to undefined behavior.
-         * 
+         * @details Packets stored in this queue should be created using 'new'. After popping the
+         * pointer, you can either delete it manually or wrap it in smart pointers. Be sure to
+         * release the smart pointer before pushing it again, as failing to do so could lead to
+         * undefined behavior.
+         *
          * @todo Implement a circular buffer and ByteView handler for the lock-free queue.
-         *       The ByteView handler should hold a simple pointer to a circular buffer and a ByteView.
-         *       The circular buffer should automatically free memory allocated by the ByteViewHandler::free() method. 
-         *       This approach optimizes memory usage by avoiding repeated allocation and deallocation from the OS.
-         *       Another option is to use a default queue of shared pointers, which automatically handles deallocation.
-         *       The final choice may affect performance and memory usage, and further testing is needed.
-         * 
+         *       The ByteView handler should hold a simple pointer to a circular buffer and a
+         * ByteView. The circular buffer should automatically free memory allocated by the
+         * ByteViewHandler::free() method. This approach optimizes memory usage by avoiding repeated
+         * allocation and deallocation from the OS. Another option is to use a default queue of
+         * shared pointers, which automatically handles deallocation. The final choice may affect
+         * performance and memory usage, and further testing is needed.
+         *
          * @warning The current implementation is a proof-of-concept and has important TODOs.
          */
-        boost::lockfree::queue<ByteArray*, boost::lockfree::fixed_sized<true>> received_packets_;
-         /**
+        boost::lockfree::queue<ByteArray *, boost::lockfree::fixed_sized<true>> received_packets_;
+        /**
          * @brief Lock-free queue to store packets that are waiting to be sent.
          */
-        boost::lockfree::queue<ByteArray*, boost::lockfree::fixed_sized<true>> packets_to_send_;
-    
+        boost::lockfree::queue<ByteArray *, boost::lockfree::fixed_sized<true>> packets_to_send_;
+
         /**
          * @brief Indicates whether the session is alive and operational.
          */
-        bool alive_ = true; 
-        
+        bool alive_ = true;
+
         /**
          * @brief Buffer used for reading data from the network socket.
          */
         boost::asio::streambuf buffer_;
-        
+
         /**
          * @brief The TCP socket for network communication.
          */
         boost::asio::ip::tcp::tcp::socket socket_;
-        
+
         /**
          * @brief Holder for AES encryption.
-         * @todo Add an abstract encryption class that allows overloading of encrypt/decrypt methods from ByteView. 
+         * @todo Add an abstract encryption class that allows overloading of encrypt/decrypt methods
+         * from ByteView.
          */
         std::unique_ptr<crypto::AES::AES256> aes_ = nullptr;
 
@@ -258,11 +262,11 @@ namespace node_system
          * @brief Mutex to ensure thread-safe access to the packet receiver function.
          */
         std::mutex packet_receiver_mutex_;
-        
+
         /**
          * @brief Callback function for processing received packets.
          */
         PacketReceiverFn packet_receiver_;
     };
-}
+} // namespace node_system
 #include "session.inl"

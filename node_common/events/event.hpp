@@ -9,8 +9,8 @@
  *
  * @param event_type The name of the event type.
  */
-#define EVENT_CLASS_TYPE(event_type)                            \
-    static constexpr std::string_view event_name = #event_type; \
+#define EVENT_CLASS_TYPE(event_type)                                                               \
+    static constexpr std::string_view event_name = #event_type;                                    \
     [[nodiscard]] std::string_view name() const override { return event_name; }
 
 namespace node_system::events
@@ -48,7 +48,7 @@ namespace node_system::events
          * @param flags The category flags of the event.
          */
         Event(EventType type, uint8_t flags) : kType{ type }, kCategoryFlags{ flags } {}
-        
+
         /**
          * @brief Virtual destructor for the Event class.
          */
@@ -60,14 +60,14 @@ namespace node_system::events
          * @return The EventType of the event.
          */
         [[nodiscard]] EventType type() const noexcept { return kType; }
-        
+
         /**
          * @brief Returns the category flags of the event.
          *
          * @return The category flags of the event.
          */
         [[nodiscard]] uint8_t category_flags() const noexcept { return kCategoryFlags; };
-        
+
         /**
          * @brief Checks if the event is in the specified category.
          *
@@ -84,16 +84,13 @@ namespace node_system::events
          * @return The name of the event.
          */
         [[nodiscard]] virtual std::string_view name() const = 0;
-        
+
         /**
          * @brief Returns the string representation of the event.
          *
          * @return The string representation of the event.
          */
-        [[nodiscard]] virtual std::string to_string() const noexcept
-        {
-            return std::string(name());
-        }
+        [[nodiscard]] virtual std::string to_string() const noexcept { return std::string(name()); }
 
         /**
          * @brief Indicates whether the event has been handled.
@@ -117,5 +114,5 @@ namespace node_system
     /**
      * @brief Alias for the event callback function.
      */
-    using EventCallbackFn = std::function<void(events::Event&)>;
+    using EventCallbackFn = std::function<void(events::Event &)>;
 } // namespace node_system

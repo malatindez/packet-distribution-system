@@ -5,16 +5,14 @@ namespace node_system
 {
     class DispatcherSession
     {
-        public:
-            DispatcherSession(
-                boost::asio::io_context &io_context,
-                boost::asio::ip::tcp::socket &&socket
-            )
-            {
-                
-            }
-        private:
-            std::shared_ptr<Session> session_;
-            std::shared_ptr<PacketDispatcher> dispatcher;
+    public:
+        DispatcherSession(boost::asio::io_context &io_context,
+                          boost::asio::ip::tcp::socket &&socket)
+        {
+        }
+
+    private:
+        std::shared_ptr<Session> session_;
+        std::shared_ptr<PacketDispatcher> dispatcher;
     };
-}
+} // namespace node_system

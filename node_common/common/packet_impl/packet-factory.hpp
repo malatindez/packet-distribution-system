@@ -7,7 +7,8 @@ namespace node_system::packet
     /**
      * @brief A class responsible for registering and creating packet deserializers.
      */
-    class PacketFactory {
+    class PacketFactory
+    {
     public:
         /**
          * @brief Register a packet deserializer function for a specific PacketType.
@@ -18,8 +19,7 @@ namespace node_system::packet
          *
          * @tparam PacketType The packet type that satisfies the IsPacket concept.
          */
-        template<IsPacket PacketType>
-        static inline void RegisterDeserializer()
+        template <IsPacket PacketType> static inline void RegisterDeserializer()
         {
             packet_deserializers_[PacketType::static_type] = PacketType::deserialize;
         }
@@ -33,10 +33,12 @@ namespace node_system::packet
          * @param packet_id The unique packet ID.
          * @param factory The packet deserialization factory function.
          */
-        static inline void RegisterDeserializer(UniquePacketID packet_id, PacketDeserializeFunc const &factory) {
+        static inline void RegisterDeserializer(UniquePacketID packet_id,
+                                                PacketDeserializeFunc const &factory)
+        {
             packet_deserializers_[packet_id] = factory;
         }
-        
+
         /**
          * @brief Deserialize a byte view into a unique pointer of the specified packet type.
          *
@@ -47,13 +49,17 @@ namespace node_system::packet
          * @param packet_type The unique packet ID specifying the packet type.
          * @return A unique pointer to the deserialized packet instance.
          */
-        [[nodiscard]] static inline std::unique_ptr<Packet> Deserialize(const ByteView& bytearray, UniquePacketID packet_type) {
+        [[nodiscard]] static inline std::unique_ptr<Packet> Deserialize(const ByteView &bytearray,
+                                                                        UniquePacketID packet_type)
+        {
             auto it = packet_deserializers_.find(packet_type);
-            if (it != packet_deserializers_.end()) {
-                return it->second(bytearray); 
+            if (it != packet_deserializers_.end())
+            {
+                return it->second(bytearray);
             }
             return nullptr;
         }
+
     private:
         /**
          * @brief Map storing registered packet deserializer functions.

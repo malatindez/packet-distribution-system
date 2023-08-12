@@ -49,15 +49,20 @@ namespace node_system::crypto::ECDSA
         {
             ctx_.reset(EVP_PKEY_CTX_new_id(EVP_PKEY_EC, nullptr));
             utils::AlwaysAssert(ctx_ != nullptr, "EVP_PKEY_CTX_new_id() failed");
-            utils::AlwaysAssert(EVP_PKEY_keygen_init(ctx_.get()) > 0, "EVP_PKEY_keygen_init() failed");
-            utils::AlwaysAssert(EVP_PKEY_CTX_set_ec_paramgen_curve_nid(ctx_.get(), curve_id) > 0, "EVP_PKEY_CTX_set_ec_paramgen_curve_nid() failed");
+            utils::AlwaysAssert(EVP_PKEY_keygen_init(ctx_.get()) > 0,
+                                "EVP_PKEY_keygen_init() failed");
+            utils::AlwaysAssert(EVP_PKEY_CTX_set_ec_paramgen_curve_nid(ctx_.get(), curve_id) > 0,
+                                "EVP_PKEY_CTX_set_ec_paramgen_curve_nid() failed");
         }
-        
+
         /**
          * @brief Constructs a KeyPairGenerator object for the specified curve name.
          * @param curve_name The name of the elliptic curve (e.g., "secp256k1").
          */
-        explicit KeyPairGenerator(const std::string_view curve_name) : KeyPairGenerator(GetCurveByName(curve_name)) { }
+        explicit KeyPairGenerator(const std::string_view curve_name)
+            : KeyPairGenerator(GetCurveByName(curve_name))
+        {
+        }
 
         /**
          * @brief Generates an ECDSA key pair.
@@ -67,16 +72,19 @@ namespace node_system::crypto::ECDSA
         {
             EVP_PKEY_WRAPPER pkey;
             {
-                EVP_PKEY* pkey_ = nullptr;
-                utils::AlwaysAssert(EVP_PKEY_keygen(ctx_.get(), &pkey_) > 0, "EVP_PKEY_keygen() failed");
+                EVP_PKEY *pkey_ = nullptr;
+                utils::AlwaysAssert(EVP_PKEY_keygen(ctx_.get(), &pkey_) > 0,
+                                    "EVP_PKEY_keygen() failed");
                 pkey.reset(pkey_);
             }
-            unsigned char* key_data;
+            unsigned char *key_data;
             unsigned long key_size;
 
             BIO_WRAPPER bio{ BIO_new(BIO_s_mem()) };
             utils::AlwaysAssert(bio != nullptr, "BIO_new_file() failed");
-            utils::AlwaysAssert(PEM_write_bio_PrivateKey(bio.get(), pkey.get(), nullptr, nullptr, 0, nullptr, nullptr) > 0, "PEM_write_bio_PrivateKey() failed");
+            utils::AlwaysAssert(PEM_write_bio_PrivateKey(bio.get(), pkey.get(), nullptr, nullptr, 0,
+                                                         nullptr, nullptr) > 0,
+                                "PEM_write_bio_PrivateKey() failed");
             key_size = BIO_get_mem_data(bio.get(), &key_data);
 
             Key private_key;
@@ -85,7 +93,8 @@ namespace node_system::crypto::ECDSA
 
             bio.reset(BIO_new(BIO_s_mem()));
             utils::AlwaysAssert(bio != nullptr, "BIO_new_file() failed");
-            utils::AlwaysAssert(PEM_write_bio_PUBKEY(bio.get(), pkey.get()) > 0, "PEM_write_bio_PUBKEY() failed");
+            utils::AlwaysAssert(PEM_write_bio_PUBKEY(bio.get(), pkey.get()) > 0,
+                                "PEM_write_bio_PUBKEY() failed");
             key_size = BIO_get_mem_data(bio.get(), &key_data);
             Key public_key;
             public_key.resize(key_size);
@@ -111,7 +120,8 @@ namespace node_system::crypto::ECDSA
          */
         Signer(const KeyView private_key, const Hash::HashType hash_type) : hash_type_(hash_type)
         {
-            BIO_WRAPPER bio{ BIO_new_mem_buf(private_key.data(), static_cast<int>(private_key.size())) };
+            BIO_WRAPPER bio{ BIO_new_mem_buf(private_key.data(),
+                                             static_cast<int>(private_key.size())) };
             utils::AlwaysAssert(bio != nullptr, "BIO_new_file() failed");
             pkey_.reset(PEM_read_bio_PrivateKey(bio.get(), nullptr, nullptr, nullptr));
             utils::AlwaysAssert(pkey_ != nullptr, "PEM_read_bio_PrivateKey() failed");
@@ -121,15 +131,18 @@ namespace node_system::crypto::ECDSA
             utils::AlwaysAssert(EVP_PKEY_sign_init(ctx_.get()) > 0, "EVP_PKEY_sign_init() failed");
             if (hash_type == Hash::HashType::SHA256)
             {
-                utils::AlwaysAssert(EVP_PKEY_CTX_set_signature_md(ctx_.get(), EVP_sha256()) > 0, "EVP_PKEY_CTX_set_signature_md() failed");
+                utils::AlwaysAssert(EVP_PKEY_CTX_set_signature_md(ctx_.get(), EVP_sha256()) > 0,
+                                    "EVP_PKEY_CTX_set_signature_md() failed");
             }
             else if (hash_type == Hash::HashType::SHA384)
             {
-                utils::AlwaysAssert(EVP_PKEY_CTX_set_signature_md(ctx_.get(), EVP_sha384()) > 0, "EVP_PKEY_CTX_set_signature_md() failed");
+                utils::AlwaysAssert(EVP_PKEY_CTX_set_signature_md(ctx_.get(), EVP_sha384()) > 0,
+                                    "EVP_PKEY_CTX_set_signature_md() failed");
             }
             else if (hash_type == Hash::HashType::SHA512)
             {
-                utils::AlwaysAssert(EVP_PKEY_CTX_set_signature_md(ctx_.get(), EVP_sha512()) > 0, "EVP_PKEY_CTX_set_signature_md() failed");
+                utils::AlwaysAssert(EVP_PKEY_CTX_set_signature_md(ctx_.get(), EVP_sha512()) > 0,
+                                    "EVP_PKEY_CTX_set_signature_md() failed");
             }
             else
             {
@@ -149,10 +162,14 @@ namespace node_system::crypto::ECDSA
             size_t signature_size = 0;
             ByteArray signature;
 
-            utils::AlwaysAssert(EVP_PKEY_sign(ctx_.get(), nullptr, &signature_size, hash.as_uint8(), hash.size()) > 0, "EVP_PKEY_sign() failed");
+            utils::AlwaysAssert(EVP_PKEY_sign(ctx_.get(), nullptr, &signature_size, hash.as_uint8(),
+                                              hash.size()) > 0,
+                                "EVP_PKEY_sign() failed");
             signature.resize(signature_size);
 
-            utils::AlwaysAssert(EVP_PKEY_sign(ctx_.get(), signature.as<unsigned char>(), &signature_size, hash.as_uint8(), hash.size()) > 0, "EVP_PKEY_sign() failed");
+            utils::AlwaysAssert(EVP_PKEY_sign(ctx_.get(), signature.as<unsigned char>(),
+                                              &signature_size, hash.as_uint8(), hash.size()) > 0,
+                                "EVP_PKEY_sign() failed");
             signature.resize(signature_size);
             return signature;
         }
@@ -187,25 +204,30 @@ namespace node_system::crypto::ECDSA
          */
         Verifier(const KeyView public_key, const Hash::HashType hash_type) : hash_type_(hash_type)
         {
-            BIO_WRAPPER bio{ BIO_new_mem_buf(public_key.data(), static_cast<int>(public_key.size())) };
+            BIO_WRAPPER bio{ BIO_new_mem_buf(public_key.data(),
+                                             static_cast<int>(public_key.size())) };
             utils::AlwaysAssert(bio != nullptr, "BIO_new_file() failed");
             pkey_.reset(PEM_read_bio_PUBKEY(bio.get(), nullptr, nullptr, nullptr));
             utils::AlwaysAssert(pkey_ != nullptr, "PEM_read_bio_PUBKEY() failed");
 
             ctx_.reset(EVP_PKEY_CTX_new(pkey_.get(), nullptr));
             utils::AlwaysAssert(ctx_ != nullptr, "EVP_PKEY_CTX_new() failed");
-            utils::AlwaysAssert(EVP_PKEY_verify_init(ctx_.get()) > 0, "EVP_PKEY_verify_init() failed");
+            utils::AlwaysAssert(EVP_PKEY_verify_init(ctx_.get()) > 0,
+                                "EVP_PKEY_verify_init() failed");
             if (hash_type == Hash::HashType::SHA256)
             {
-                utils::AlwaysAssert(EVP_PKEY_CTX_set_signature_md(ctx_.get(), EVP_sha256()) > 0, "EVP_PKEY_CTX_set_signature_md() failed");
+                utils::AlwaysAssert(EVP_PKEY_CTX_set_signature_md(ctx_.get(), EVP_sha256()) > 0,
+                                    "EVP_PKEY_CTX_set_signature_md() failed");
             }
             else if (hash_type == Hash::HashType::SHA384)
             {
-                utils::AlwaysAssert(EVP_PKEY_CTX_set_signature_md(ctx_.get(), EVP_sha384()) > 0, "EVP_PKEY_CTX_set_signature_md() failed");
+                utils::AlwaysAssert(EVP_PKEY_CTX_set_signature_md(ctx_.get(), EVP_sha384()) > 0,
+                                    "EVP_PKEY_CTX_set_signature_md() failed");
             }
             else if (hash_type == Hash::HashType::SHA512)
             {
-                utils::AlwaysAssert(EVP_PKEY_CTX_set_signature_md(ctx_.get(), EVP_sha512()) > 0, "EVP_PKEY_CTX_set_signature_md() failed");
+                utils::AlwaysAssert(EVP_PKEY_CTX_set_signature_md(ctx_.get(), EVP_sha512()) > 0,
+                                    "EVP_PKEY_CTX_set_signature_md() failed");
             }
             else
             {
@@ -223,9 +245,9 @@ namespace node_system::crypto::ECDSA
         {
             utils::Assert(hash.hash_type == hash_type_, "Unsupported hash type");
 
-            return EVP_PKEY_verify(ctx_.get(), signature.as<unsigned char>(), signature.size(), hash.as_uint8(), hash.size()) > 0;
+            return EVP_PKEY_verify(ctx_.get(), signature.as<unsigned char>(), signature.size(),
+                                   hash.as_uint8(), hash.size()) > 0;
         }
-
 
         /**
          * @brief Verifies the signature of binary data.
@@ -248,57 +270,53 @@ namespace node_system::crypto::ECDSA
      * @deprecated This function is deprecated. Use KeyPairGenerator class instead.
      * @see KeyPairGenerator
      */
-    [[deprecated]]
-    [[nodiscard]] KeyPair generate_key_pair(std::string curve_name)
+    [[deprecated]] [[nodiscard]] KeyPair generate_key_pair(std::string curve_name)
     {
         KeyPairGenerator instance(curve_name);
         return instance.generate();
     }
 
-
     /**
      * @deprecated This function is deprecated. Use Signer class instead.
      * @see Signer
      */
-    [[deprecated]]
-    [[nodiscard]] ByteArray sign_data(const KeyView private_key, const ByteView data, const Hash::HashType hash_type)
+    [[deprecated]] [[nodiscard]] ByteArray sign_data(const KeyView private_key, const ByteView data,
+                                                     const Hash::HashType hash_type)
     {
         Signer instance(private_key, hash_type);
         return instance.sign_data(data);
     }
-    
 
     /**
      * @deprecated This function is deprecated. Use Signer class instead.
      * @see Signer
      */
-    [[deprecated]]
-    [[nodiscard]] ByteArray sign_hash(const KeyView private_key, const Hash hash)
+    [[deprecated]] [[nodiscard]] ByteArray sign_hash(const KeyView private_key, const Hash hash)
     {
         Signer instance(private_key, hash.hash_type);
         return instance.sign_hash(hash);
     }
-    
 
     /**
      * @deprecated This function is deprecated. Use Verifier class instead.
      * @see Verifier
      */
-    [[deprecated]]
-    [[nodiscard]] bool verify_data(const KeyView public_key, const ByteView data, const ByteView signature, const Hash::HashType hash_type)
+    [[deprecated]] [[nodiscard]] bool verify_data(const KeyView public_key, const ByteView data,
+                                                  const ByteView signature,
+                                                  const Hash::HashType hash_type)
     {
         Verifier instance(public_key, hash_type);
         return instance.verify_data(data, signature);
     }
-    
+
     /**
      * @deprecated This function is deprecated. Use Verifier class instead.
      * @see Verifier
      */
-    [[deprecated]]
-    [[nodiscard]] bool verify_hash(const KeyView public_key, const Hash hash, const ByteView signature)
+    [[deprecated]] [[nodiscard]] bool verify_hash(const KeyView public_key, const Hash hash,
+                                                  const ByteView signature)
     {
         Verifier instance(public_key, hash.hash_type);
         return instance.verify_hash(hash, signature);
     }
-}
+} // namespace node_system::crypto::ECDSA

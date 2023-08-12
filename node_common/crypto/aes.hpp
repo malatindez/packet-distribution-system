@@ -1,8 +1,9 @@
 #pragma once
-#include "common.hpp"
 #include "../utils/utils.hpp"
-#include <openssl/evp.h>
+#include "common.hpp"
 #include <openssl/aes.h>
+#include <openssl/evp.h>
+
 namespace node_system::crypto::AES
 {
     /**
@@ -35,21 +36,16 @@ namespace node_system::crypto::AES
             unsigned char key[32], iv[32];
 
             /*
-             * Gen key & IV for AES 256 CBC mode. A SHA1 digest is used to hash the supplied key material.
-             * n_rounds is the number of times the we hash the material.
-             * A greater number of rounds enhances security but results in slower performance
+             * Gen key & IV for AES 256 CBC mode. A SHA1 digest is used to hash the supplied key
+             * material. n_rounds is the number of times the we hash the material. A greater number
+             * of rounds enhances security but results in slower performance
              */
-            int i = EVP_BytesToKey(
-                EVP_aes_256_cbc(),
-                EVP_sha1(),
-                salt.as<unsigned char>(),
-                input_key.as<unsigned char>(),
-                static_cast<int>(input_key.size()),
-                n_rounds,
-                key,
-                iv);
+            int i = EVP_BytesToKey(EVP_aes_256_cbc(), EVP_sha1(), salt.as<unsigned char>(),
+                                   input_key.as<unsigned char>(),
+                                   static_cast<int>(input_key.size()), n_rounds, key, iv);
 
-            utils::AlwaysAssert(i == 32, "Key size is " + std::to_string(i) + " bytes - should be 256 bits");
+            utils::AlwaysAssert(i == 32,
+                                "Key size is " + std::to_string(i) + " bytes - should be 256 bits");
 
             encrypt_context_.reset(EVP_CIPHER_CTX_new());
             decrypt_context_.reset(EVP_CIPHER_CTX_new());
@@ -66,24 +62,23 @@ namespace node_system::crypto::AES
         [[nodiscard]] ByteArray encrypt(const ByteView plaintext) const
         {
             /* max ciphertext len for a n bytes of plaintext is n + AES_BLOCK_SIZE -1 bytes */
-            utils::AlwaysAssert(plaintext.size() < INT_MAX - AES_BLOCK_SIZE, "Plaintext size is too large");
+            utils::AlwaysAssert(plaintext.size() < INT_MAX - AES_BLOCK_SIZE,
+                                "Plaintext size is too large");
             int c_len = static_cast<int>(plaintext.size() + AES_BLOCK_SIZE);
             int f_len = 0;
             ByteArray ciphertext;
             ciphertext.resize(c_len);
 
             EVP_EncryptInit_ex(encrypt_context_.get(), nullptr, nullptr, nullptr, nullptr);
-            EVP_EncryptUpdate(encrypt_context_.get(),
-                              ciphertext.as<unsigned char>(),
-                              &c_len,
-                              plaintext.as<unsigned char>(),
-                              static_cast<int>(plaintext.size()));
-            EVP_EncryptFinal_ex(encrypt_context_.get(), ciphertext.as<unsigned char>() + c_len, &f_len);
+            EVP_EncryptUpdate(encrypt_context_.get(), ciphertext.as<unsigned char>(), &c_len,
+                              plaintext.as<unsigned char>(), static_cast<int>(plaintext.size()));
+            EVP_EncryptFinal_ex(encrypt_context_.get(), ciphertext.as<unsigned char>() + c_len,
+                                &f_len);
 
             ciphertext.resize(c_len + f_len);
             return ciphertext;
         }
-        
+
         /**
          * @brief Decrypts ciphertext data using AES-256 CBC mode.
          * @param ciphertext The data to be decrypted.
@@ -97,12 +92,10 @@ namespace node_system::crypto::AES
             ByteArray plaintext;
             plaintext.resize(p_len);
             EVP_DecryptInit_ex(decrypt_context_.get(), nullptr, nullptr, nullptr, nullptr);
-            EVP_DecryptUpdate(decrypt_context_.get(),
-                              plaintext.as<unsigned char>(),
-                              &p_len,
-                              ciphertext.as<unsigned char>(),
-                              static_cast<int>(ciphertext.size()));
-            EVP_DecryptFinal_ex(decrypt_context_.get(), plaintext.as<unsigned char>() + p_len, &f_len);
+            EVP_DecryptUpdate(decrypt_context_.get(), plaintext.as<unsigned char>(), &p_len,
+                              ciphertext.as<unsigned char>(), static_cast<int>(ciphertext.size()));
+            EVP_DecryptFinal_ex(decrypt_context_.get(), plaintext.as<unsigned char>() + p_len,
+                                &f_len);
             plaintext.resize(p_len + f_len);
             return plaintext;
         }
@@ -111,4 +104,4 @@ namespace node_system::crypto::AES
         EVP_CIPHER_CTX_WRAPPER encrypt_context_; /**< Encryption context. */
         EVP_CIPHER_CTX_WRAPPER decrypt_context_; /**< Decryption context. */
     };
-}
+} // namespace node_system::crypto::AES

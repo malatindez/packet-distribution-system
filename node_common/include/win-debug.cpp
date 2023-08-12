@@ -1,4 +1,4 @@
-#if defined (_WIN32)
+#if defined(_WIN32)
 #include "win-debug.hpp"
 static std::function<void(std::string_view)> OutputDebugStringCallback;
 LONG NTAPI VexHandler(PEXCEPTION_POINTERS ExceptionInfo)
@@ -7,51 +7,53 @@ LONG NTAPI VexHandler(PEXCEPTION_POINTERS ExceptionInfo)
 
     switch (ExceptionRecord->ExceptionCode)
     {
-    case DBG_PRINTEXCEPTION_WIDE_C:
-    case DBG_PRINTEXCEPTION_C:
+        case DBG_PRINTEXCEPTION_WIDE_C:
+        case DBG_PRINTEXCEPTION_C:
 
-        if (ExceptionRecord->NumberParameters >= 2)
-        {
-            bool call_free = false;
-            auto len = (ULONG)ExceptionRecord->ExceptionInformation[0];
-
-            union
+            if (ExceptionRecord->NumberParameters >= 2)
             {
-                ULONG_PTR up;
-                PCWSTR pwz;
-                PCSTR psz;
-            };
+                bool call_free = false;
+                auto len = (ULONG)ExceptionRecord->ExceptionInformation[0];
 
-            up = ExceptionRecord->ExceptionInformation[1];
-
-            if (ExceptionRecord->ExceptionCode == DBG_PRINTEXCEPTION_WIDE_C)
-            {
-                if (ULONG n = WideCharToMultiByte(CP_UTF8, 0, pwz, len, nullptr, 0, nullptr, nullptr))
+                union
                 {
-                    auto sz = (PSTR)_malloca(n * sizeof(CHAR));
+                    ULONG_PTR up;
+                    PCWSTR pwz;
+                    PCSTR psz;
+                };
 
-                    if (len = WideCharToMultiByte(CP_UTF8, 0, pwz, len, sz, n, nullptr, nullptr);
-                        len)
+                up = ExceptionRecord->ExceptionInformation[1];
+
+                if (ExceptionRecord->ExceptionCode == DBG_PRINTEXCEPTION_WIDE_C)
+                {
+                    if (ULONG n =
+                            WideCharToMultiByte(CP_UTF8, 0, pwz, len, nullptr, 0, nullptr, nullptr))
                     {
-                        psz = sz;
-                        call_free = true;
-                    }
-                    else
-                    {
-                        _freea((void *)(psz));
+                        auto sz = (PSTR)_malloca(n * sizeof(CHAR));
+
+                        if (len =
+                                WideCharToMultiByte(CP_UTF8, 0, pwz, len, sz, n, nullptr, nullptr);
+                            len)
+                        {
+                            psz = sz;
+                            call_free = true;
+                        }
+                        else
+                        {
+                            _freea((void *)(psz));
+                        }
                     }
                 }
+                if (psz)
+                {
+                    OutputDebugStringCallback(psz);
+                }
+                if (call_free)
+                {
+                    _freea((void *)(psz));
+                }
             }
-            if (psz)
-            {
-                OutputDebugStringCallback(psz);
-            }
-            if (call_free)
-            {
-                _freea((void *)(psz));
-            }
-        }
-        return EXCEPTION_CONTINUE_EXECUTION;
+            return EXCEPTION_CONTINUE_EXECUTION;
     }
 
     return EXCEPTION_CONTINUE_SEARCH;
@@ -64,5 +66,5 @@ namespace utils::debug
         OutputDebugStringCallback = callback;
         AddVectoredExceptionHandler(TRUE, VexHandler);
     }
-}
+} // namespace utils::debug
 #endif
