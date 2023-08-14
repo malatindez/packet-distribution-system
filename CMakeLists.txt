@@ -18,6 +18,7 @@ elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP /W4")
 endif()
 
+
 if(MSVC)
   add_compile_options("$<$<CONFIG:RELEASE>:/MP>")
   add_compile_options("$<$<CONFIG:RELEASE>:/Oi>")
@@ -64,6 +65,9 @@ endif()
 
 set (MAIN_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
+make_directory(${CMAKE_BINARY_DIR}/binary)
+set(BINARY_OUTPUT_DIR ${CMAKE_BINARY_DIR}/binary)
+
 function(target_set_output_directory TARGET)
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/${TARGET}.vcxproj.user" "\
 <?xml version=\"1.0\" encoding=\"utf-8\"?> \ 
@@ -89,18 +93,17 @@ file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/${TARGET}.vcxproj.user" "\
 
 set_target_properties(${TARGET} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${BINARY_OUTPUT_DIR})
 
+
 # copy the executable to the runtime directory
 add_custom_command(TARGET ${TARGET} POST_BUILD 
-  COMMAND "${CMAKE_COMMAND}" -E copy
+  COMMAND "${CMAKE_COMMAND}" -E copy_if_different
      "$<TARGET_FILE:${TARGET}>"
-     "${CMAKE_CURRENT_SOURCE_DIR}/runtime_directory/$<TARGET_FILE_NAME:${TARGET}>" 
+     "${MAIN_SRC_DIR}/runtime_directory/$<TARGET_FILE_NAME:${TARGET}>" 
   COMMENT "Copying the executable to output directory"
 )
 
 endfunction()
 
-make_directory(${CMAKE_BINARY_DIR}/binary)
-set(BINARY_OUTPUT_DIR ${CMAKE_BINARY_DIR}/binary)
 include("${CMAKE_CURRENT_SOURCE_DIR}/third_party/CMakeLists.txt")
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/central_server")
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/server_dll")

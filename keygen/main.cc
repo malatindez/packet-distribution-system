@@ -5,13 +5,13 @@
 #include <boost/program_options/variables_map.hpp>
 #include <iostream>
 #include <filesystem>
-#include "utils/utils.hpp"
-#include "crypto/ecdsa.hpp"
-
+#include "mal-packet-weaver/crypto.hpp"
+using namespace mal_packet_weaver::crypto;
+using namespace mal_packet_weaver;
 
 namespace po = boost::program_options;
 
-void WriteMergedKeys(std::string const& private_key_merged_file, std::string const& public_key_merged_file, bool force, std::vector<node_system::crypto::KeyPair> const& key_pairs)
+void WriteMergedKeys(std::string const& private_key_merged_file, std::string const& public_key_merged_file, bool force, std::vector<KeyPair> const& key_pairs)
 {
     const auto private_path = std::filesystem::path(private_key_merged_file);
     const auto public_path = std::filesystem::path(public_key_merged_file);
@@ -39,7 +39,7 @@ void WriteMergedKeys(std::string const& private_key_merged_file, std::string con
     public_key_file.close();
 }
 
-void WriteSeparateKeys(std::string const& private_key_output_folder, std::string const& public_key_output_folder, bool force, std::vector<node_system::crypto::KeyPair> const& key_pairs)
+void WriteSeparateKeys(std::string const& private_key_output_folder, std::string const& public_key_output_folder, bool force, std::vector<KeyPair> const& key_pairs)
 {
     int i = 0;
     for (auto const& pair : key_pairs)
@@ -141,8 +141,6 @@ int main(int argc, char **argv)
             private_key_merged_file = vm["private-key-merged-file"].as<std::string>();
         }
 
-        using namespace node_system::crypto;
-        using namespace node_system;
         std::vector<KeyPair> key_pairs;
         {
             ECDSA::KeyPairGenerator generator(curve);
@@ -169,7 +167,7 @@ int main(int argc, char **argv)
                 bool result = verifier.verify_data(pair.public_key, random_bytes, signature, Hash::HashType::SHA256);
                 */
 
-                utils::AlwaysAssert(result, "Error: keypair verification has failed.");
+                AlwaysAssert(result, "Error: keypair verification has failed.");
                 key_pairs.push_back(pair);
             }
         }
