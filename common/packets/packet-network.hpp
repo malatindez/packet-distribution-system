@@ -29,7 +29,7 @@ constexpr mal_packet_weaver::UniquePacketID EchoPacketID =
 /**
  * @brief Packet for sending a ping signal.
  */
-class PingPacket : public mal_packet_weaver::DerivedPacket<class PingPacket>
+class PingPacket final : public mal_packet_weaver::DerivedPacket<class PingPacket>
 {
 public:
     static constexpr mal_packet_weaver::UniquePacketID static_type = PingPacketID;
@@ -39,16 +39,13 @@ public:
 private:
     friend class boost::serialization::access;
     template <class Archive>
-    void serialize(Archive &ar, [[maybe_unused]] const unsigned int version)
-    {
-        ar &boost::serialization::base_object<mal_packet_weaver::DerivedPacket<class PingPacket>>(*this);
-    }
+    void serialize(Archive &ar, [[maybe_unused]] const unsigned int version) {}
 };
 
 /**
  * @brief Packet for responding to a ping signal.
  */
-class PongPacket : public mal_packet_weaver::DerivedPacket<class PongPacket>
+class PongPacket final : public mal_packet_weaver::DerivedPacket<class PongPacket>
 {
 public:
     static constexpr mal_packet_weaver::UniquePacketID static_type = PongPacketID;
@@ -57,16 +54,13 @@ public:
 private:
     friend class boost::serialization::access;
     template <class Archive>
-    void serialize(Archive &ar, [[maybe_unused]] const unsigned int version)
-    {
-        ar &boost::serialization::base_object<mal_packet_weaver::DerivedPacket<class PongPacket>>(*this);
-    }
+    void serialize(Archive &ar, [[maybe_unused]] const unsigned int version) { }
 };
 
 /**
  * @brief Packet for sending a text message.
  */
-class MessagePacket : public mal_packet_weaver::DerivedPacket<class MessagePacket>
+class MessagePacket final : public mal_packet_weaver::DerivedPacket<class MessagePacket>
 {
 public:
     static constexpr mal_packet_weaver::UniquePacketID static_type = MessagePacketID;
@@ -76,17 +70,13 @@ public:
 private:
     friend class boost::serialization::access;
     template <class Archive>
-    void serialize(Archive &ar, [[maybe_unused]] const unsigned int version)
-    {
-        ar &boost::serialization::base_object<mal_packet_weaver::DerivedPacket<class MessagePacket>>(*this);
-        ar &message;
-    }
+    void serialize(Archive &ar, [[maybe_unused]] const unsigned int version) { ar &message; }
 };
 
 /**
  * @brief Packet for echoing a received message.
  */
-class EchoPacket : public mal_packet_weaver::DerivedPacket<class EchoPacket>
+class EchoPacket final : public mal_packet_weaver::DerivedPacket<class EchoPacket>
 {
 public:
     static constexpr mal_packet_weaver::UniquePacketID static_type = EchoPacketID;
@@ -96,11 +86,7 @@ public:
 private:
     friend class boost::serialization::access;
     template <class Archive>
-    void serialize(Archive &ar, [[maybe_unused]] const unsigned int version)
-    {
-        ar &boost::serialization::base_object<mal_packet_weaver::DerivedPacket<class EchoPacket>>(*this);
-        ar &echo_message;
-    }
+    void serialize(Archive &ar, [[maybe_unused]] const unsigned int version) { ar &echo_message; }
 };
 
 /**
