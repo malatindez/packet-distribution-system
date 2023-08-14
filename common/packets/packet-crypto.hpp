@@ -81,6 +81,6 @@ private:
  */
 inline void RegisterDeserializersCrypto()
 {
-    mal_packet_weaver::packet::PacketFactory::RegisterDeserializer<DHKeyExchangeRequestPacket>();
-    mal_packet_weaver::packet::PacketFactory::RegisterDeserializer<DHKeyExchangeResponsePacket>();
+    mal_packet_weaver::PacketFactory::RegisterDeserializer<DHKeyExchangeRequestPacket>();
+    mal_packet_weaver::PacketFactory::RegisterDeserializer<DHKeyExchangeResponsePacket>();
 }

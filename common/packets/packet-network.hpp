@@ -94,8 +94,8 @@ private:
  */
 inline void RegisterDeserializersNetwork()
 {
-    mal_packet_weaver::packet::PacketFactory::RegisterDeserializer<PingPacket>();
-    mal_packet_weaver::packet::PacketFactory::RegisterDeserializer<PongPacket>();
-    mal_packet_weaver::packet::PacketFactory::RegisterDeserializer<MessagePacket>();
-    mal_packet_weaver::packet::PacketFactory::RegisterDeserializer<EchoPacket>();
+    mal_packet_weaver::PacketFactory::RegisterDeserializer<PingPacket>();
+    mal_packet_weaver::PacketFactory::RegisterDeserializer<PongPacket>();
+    mal_packet_weaver::PacketFactory::RegisterDeserializer<MessagePacket>();
+    mal_packet_weaver::PacketFactory::RegisterDeserializer<EchoPacket>();
 }

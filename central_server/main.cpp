@@ -12,7 +12,6 @@
 
 using namespace mal_packet_weaver;
 using namespace mal_packet_weaver::crypto;
-using namespace mal_packet_weaver::packet;
 
 constexpr int kAdditionalThreads = 7;
 
