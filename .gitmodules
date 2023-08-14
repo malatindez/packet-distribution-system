@@ -1,6 +1,6 @@
 [submodule "third_party/google/google_test"]
 	path = third_party/google/google_test
 	url = https://github.com/google/googletest
-[submodule "third_party/spdlog"]
-	path = third_party/spdlog
-	url = https://github.com/gabime/spdlog
+[submodule "third_party/mal-packet-weaver"]
+	path = third_party/mal-packet-weaver
+	url = https://github.com/malatindez/mal-packet-weaver

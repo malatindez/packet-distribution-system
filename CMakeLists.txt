@@ -62,24 +62,26 @@ if (WIN32)
 endif()
 
 
+set (MAIN_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+
 function(target_set_output_directory TARGET)
-file(WRITE "${CMAKE_BINARY_DIR}/${TARGET}.vcxproj.user" "\
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/${TARGET}.vcxproj.user" "\
 <?xml version=\"1.0\" encoding=\"utf-8\"?> \ 
 <Project ToolsVersion=\"Current\" xmlns=\"http://schemas.microsoft.com/developer/msbuild/2003\"> \ 
   <PropertyGroup Condition=\"'$(Configuration)|$(Platform)'=='Debug|x64'\"> \ 
-    <LocalDebuggerWorkingDirectory>$(ProjectDir)..\\runtime_directory\\</LocalDebuggerWorkingDirectory> \ 
+    <LocalDebuggerWorkingDirectory>${MAIN_SRC_DIR}\\runtime_directory\\</LocalDebuggerWorkingDirectory> \ 
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor> \ 
   </PropertyGroup> \ 
   <PropertyGroup Condition=\"'$(Configuration)|$(Platform)'=='MinSizeRel|x64'\"> \ 
-    <LocalDebuggerWorkingDirectory>$(ProjectDir)..\\runtime_directory\\</LocalDebuggerWorkingDirectory> \ 
+    <LocalDebuggerWorkingDirectory>${MAIN_SRC_DIR}\\runtime_directory\\</LocalDebuggerWorkingDirectory> \ 
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor> \ 
   </PropertyGroup> \ 
   <PropertyGroup Condition=\"'$(Configuration)|$(Platform)'=='Release|x64'\"> \ 
-    <LocalDebuggerWorkingDirectory>$(ProjectDir)..\\runtime_directory\\</LocalDebuggerWorkingDirectory> \ 
+    <LocalDebuggerWorkingDirectory>${MAIN_SRC_DIR}\\runtime_directory\\</LocalDebuggerWorkingDirectory> \ 
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor> \ 
   </PropertyGroup> \ 
   <PropertyGroup Condition=\"'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'\"> \ 
-    <LocalDebuggerWorkingDirectory>$(ProjectDir)..\\runtime_directory\\</LocalDebuggerWorkingDirectory> \ 
+    <LocalDebuggerWorkingDirectory>${MAIN_SRC_DIR}\\runtime_directory\\</LocalDebuggerWorkingDirectory> \ 
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor> \ 
   </PropertyGroup> \ 
 </Project> \ 
@@ -100,10 +102,9 @@ endfunction()
 make_directory(${CMAKE_BINARY_DIR}/binary)
 set(BINARY_OUTPUT_DIR ${CMAKE_BINARY_DIR}/binary)
 include("${CMAKE_CURRENT_SOURCE_DIR}/third_party/CMakeLists.txt")
-include("${CMAKE_CURRENT_SOURCE_DIR}/node_common/CMakeLists.txt")
-include("${CMAKE_CURRENT_SOURCE_DIR}/central_server/CMakeLists.txt")
-include("${CMAKE_CURRENT_SOURCE_DIR}/server_dll/CMakeLists.txt")
-include("${CMAKE_CURRENT_SOURCE_DIR}/client_dll/CMakeLists.txt")
-include("${CMAKE_CURRENT_SOURCE_DIR}/server_test/CMakeLists.txt")
-include("${CMAKE_CURRENT_SOURCE_DIR}/client_test/CMakeLists.txt")
-include("${CMAKE_CURRENT_SOURCE_DIR}/keygen/CMakeLists.txt")
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/central_server")
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/server_dll")
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/client_dll")
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/server_test")
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/client_test")
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/keygen")
