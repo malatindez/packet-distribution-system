@@ -9,8 +9,8 @@ using namespace mal_packet_weaver;
 using namespace mal_packet_weaver::crypto;
 using namespace mal_packet_weaver::packet;
 
-constexpr int kAdditionalThreads = 8;
-constexpr int kAmountOfSessions = 256;
+constexpr int kAdditionalThreads = 7;
+constexpr int kAmountOfSessions = 1024;
 
 boost::asio::awaitable<void> setup_encryption_for_session(DispatcherSession &dispatcher_session,
                                                           boost::asio::io_context &io,
@@ -32,8 +32,8 @@ boost::asio::awaitable<void> setup_encryption_for_session(DispatcherSession &dis
     // Verify the hash of the response. We use the function declared in DHKeyExchangeResponsePacket to compute hash.
     if (!verifier.verify_hash(response->get_hash(), response->signature))
     {
-        spdlog::warn("encryption response packet has the wrong signature. Aborting application.");
-        std::abort();
+        spdlog::warn("encryption response packet has the wrong signature. Aborting connection.");
+        dispatcher_session.Destroy();
     }
 
     mal_toolkit::ByteArray shared_secret = dh.get_shared_secret(response->public_key);
@@ -72,30 +72,32 @@ int main()
     RegisterDeserializersCrypto();
     RegisterDeserializersNetwork();
     boost::asio::io_context io_context;
-    boost::asio::ip::tcp::socket socket(io_context);
-    try
-    {
-        socket.connect(boost::asio::ip::tcp::endpoint(boost::asio::ip::address::from_string("127.0.0.1"), 1234));
-    }
-    catch(const std::exception& e)
-    {
-        spdlog::error("Couldn't establish connection: {}", e.what());
-        std::abort();
-    }
-    
     std::vector<std::unique_ptr<DispatcherSession>> sessions;
+    auto public_key = read_key("public-key.pem");
+
+    mal_packet_weaver::crypto::ECDSA::Verifier verifier{
+        public_key, mal_packet_weaver::crypto::Hash::HashType::SHA256
+    };
+
     for(int i = 0; i < kAmountOfSessions; i++)
     {
+        boost::asio::ip::tcp::socket socket(io_context);
+        try
+        {
+            socket.connect(boost::asio::ip::tcp::endpoint(
+                boost::asio::ip::address::from_string("127.0.0.1"), 1234));
+        }
+        catch (const std::exception &e)
+        {
+            spdlog::error("Couldn't establish connection: {}", e.what());
+            break;
+        }
         std::cout << "Connected to server." << std::endl;
         std::unique_ptr<DispatcherSession> dispatcher_session = std::make_unique<DispatcherSession>(io_context, std::move(socket));
         // For dispatcher_session you should explicitly declare parameters.
         // It will automatically fill
         // io_context/Session&/std::shared_ptr<Session>/PacketDispatcher&/std::shared_ptr<PacketDispatcher> variables.
         dispatcher_session->register_default_handler<mal_packet_weaver::Session &, EchoPacket>(process_echo);
-        auto public_key = read_key("public-key.pem");
-
-        mal_packet_weaver::crypto::ECDSA::Verifier verifier{ public_key,
-                                                            mal_packet_weaver::crypto::Hash::HashType::SHA256 };
         co_spawn(io_context,
                 std::bind(&setup_encryption_for_session, std::ref(*dispatcher_session), std::ref(io_context),
                         std::ref(verifier)),
