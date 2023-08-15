@@ -33,7 +33,10 @@ private:
     {
         ar &public_key;
     }
+    static mal_packet_weaver::PacketTypeRegistrationHelper<DHKeyExchangeRequestPacket> registration;
 };
+inline mal_packet_weaver::PacketTypeRegistrationHelper<DHKeyExchangeRequestPacket>
+    DHKeyExchangeRequestPacket::registration;
 
 /**
  * @brief Packet for Diffie-Hellman key exchange response.
@@ -74,13 +77,8 @@ private:
         ar &salt;
         ar &n_rounds;
     }
+    static mal_packet_weaver::PacketTypeRegistrationHelper<DHKeyExchangeResponsePacket>
+        registration;
 };
-
-/**
- * @brief Register deserializers for DHKeyExchangeRequestPacket and DHKeyExchangeResponsePacket.
- */
-inline void RegisterDeserializersCrypto()
-{
-    mal_packet_weaver::PacketFactory::RegisterDeserializer<DHKeyExchangeRequestPacket>();
-    mal_packet_weaver::PacketFactory::RegisterDeserializer<DHKeyExchangeResponsePacket>();
-}
+inline mal_packet_weaver::PacketTypeRegistrationHelper<DHKeyExchangeResponsePacket>
+    DHKeyExchangeResponsePacket::registration;

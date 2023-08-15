@@ -40,8 +40,10 @@ private:
     friend class boost::serialization::access;
     template <class Archive>
     void serialize(Archive &, const unsigned int) { }
+    static mal_packet_weaver::PacketTypeRegistrationHelper<PingPacket> registration;
 };
 
+inline mal_packet_weaver::PacketTypeRegistrationHelper<PingPacket> PingPacket::registration;
 /**
  * @brief Packet for responding to a ping signal.
  */
@@ -55,7 +57,10 @@ private:
     friend class boost::serialization::access;
     template <class Archive>
     void serialize(Archive &, const unsigned int) { }
+    static mal_packet_weaver::PacketTypeRegistrationHelper<PongPacket> registration;
 };
+
+inline mal_packet_weaver::PacketTypeRegistrationHelper<PongPacket> PongPacket::registration;
 
 /**
  * @brief Packet for sending a text message.
@@ -74,7 +79,9 @@ private:
     {
         ar &message;
     }
+    static mal_packet_weaver::PacketTypeRegistrationHelper<MessagePacket> registration;
 };
+inline mal_packet_weaver::PacketTypeRegistrationHelper<MessagePacket> MessagePacket::registration;
 
 /**
  * @brief Packet for echoing a received message.
@@ -93,15 +100,7 @@ private:
     {
         ar &echo_message;
     }
+    static mal_packet_weaver::PacketTypeRegistrationHelper<EchoPacket> registration;
 };
 
-/**
- * @brief Register deserializers for network packets.
- */
-inline void RegisterDeserializersNetwork()
-{
-    mal_packet_weaver::PacketFactory::RegisterDeserializer<PingPacket>();
-    mal_packet_weaver::PacketFactory::RegisterDeserializer<PongPacket>();
-    mal_packet_weaver::PacketFactory::RegisterDeserializer<MessagePacket>();
-    mal_packet_weaver::PacketFactory::RegisterDeserializer<EchoPacket>();
-}
+inline mal_packet_weaver::PacketTypeRegistrationHelper<EchoPacket> EchoPacket::registration;

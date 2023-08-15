@@ -129,9 +129,6 @@ int main()
 {
     spdlog::set_level(spdlog::level::debug);
 
-    RegisterDeserializersCrypto();
-    RegisterDeserializersNetwork();
-
     boost::asio::io_context io_context;
 
     auto private_key = read_key("private-key.pem");

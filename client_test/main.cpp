@@ -7,7 +7,6 @@
 
 using namespace mal_packet_weaver;
 using namespace mal_packet_weaver::crypto;
-using namespace mal_packet_weaver::packet;
 
 constexpr int kAdditionalThreads = 7;
 constexpr int kAmountOfSessions = 1024;
@@ -69,8 +68,6 @@ void process_echo(mal_packet_weaver::Session &connection, std::unique_ptr<EchoPa
 int main()
 {
     spdlog::set_level(spdlog::level::debug);
-    RegisterDeserializersCrypto();
-    RegisterDeserializersNetwork();
     boost::asio::io_context io_context;
     std::vector<std::unique_ptr<DispatcherSession>> sessions;
     auto public_key = read_key("public-key.pem");
