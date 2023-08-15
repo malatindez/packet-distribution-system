@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.21)
+cmake_minimum_required(VERSION 3.22)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -17,6 +17,7 @@ elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP /W4")
 endif()
+
 
 
 if(MSVC)
@@ -68,6 +69,9 @@ set (MAIN_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 make_directory(${CMAKE_BINARY_DIR}/binary)
 set(BINARY_OUTPUT_DIR ${CMAKE_BINARY_DIR}/binary)
 
+
+
+
 function(target_set_output_directory TARGET)
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/${TARGET}.vcxproj.user" "\
 <?xml version=\"1.0\" encoding=\"utf-8\"?> \ 
@@ -105,6 +109,22 @@ add_custom_command(TARGET ${TARGET} POST_BUILD
 endfunction()
 
 include("${CMAKE_CURRENT_SOURCE_DIR}/third_party/CMakeLists.txt")
+function(update_sources_msvc SOURCES)
+if(MSVC) # update filters in MSVC
+  foreach(_source IN ITEMS ${SOURCES})
+    if(IS_ABSOLUTE "${_source}")
+      file(RELATIVE_PATH _source_rel "${MAIN_SRC_DIR}" "${_source}")
+    else()
+      set(_source_rel "${_source}")
+    endif()
+
+    get_filename_component(_source_path "${_source_rel}" PATH)
+    string(REPLACE "/" "\\" _source_path_msvc "${_source_path}")
+    source_group("${_source_path_msvc}" FILES "${_source}")
+  endforeach()
+endif()
+endfunction(update_sources_msvc)
+
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/central_server")
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/server_dll")
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/client_dll")

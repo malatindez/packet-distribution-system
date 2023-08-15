@@ -1,10 +1,14 @@
 file(GLOB_RECURSE SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/*.*"
 )
+file(GLOB_RECURSE COMMON_SOURCES
+     "${CMAKE_CURRENT_SOURCE_DIR}/../common/*.*"
+)
 
 update_sources_msvc(${SOURCES})
+update_sources_msvc(${COMMON_SOURCES})
 
-add_library(server_dll SHARED ${SOURCES})
+add_library(server_dll SHARED ${SOURCES} ${COMMON_SOURCES})
 
 target_link_libraries(server_dll PUBLIC mal-packet-weaver)
 target_include_directories(server_dll PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../common/")
