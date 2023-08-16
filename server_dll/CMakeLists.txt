@@ -30,3 +30,9 @@ target_compile_definitions(server_dll PUBLIC SERVER_DLL_EXPORTS)
 set_target_properties(server_dll PROPERTIES LINKER_LANGUAGE CXX)
 
 target_set_output_directory(server_dll)
+
+if (MSVC)
+  target_compile_options(server_dll PRIVATE /bigobj)
+else ()
+  target_compile_options(server_dll PRIVATE -Wa,-mbig-obj)
+endif ()

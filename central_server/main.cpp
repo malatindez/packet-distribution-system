@@ -9,6 +9,7 @@
 #include "mal-packet-weaver/packet.hpp"
 #include "mal-packet-weaver/session.hpp"
 #include "common.hpp"
+#include "packets/account-trade-info.hpp"
 
 using namespace mal_packet_weaver;
 using namespace mal_packet_weaver::crypto;
@@ -127,7 +128,7 @@ private:
 
 int main()
 {
-    spdlog::set_level(spdlog::level::debug);
+    spdlog::set_level(spdlog::level::trace);
 
     boost::asio::io_context io_context;
 

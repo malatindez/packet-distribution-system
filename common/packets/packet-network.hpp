@@ -2,6 +2,18 @@
 #include "mal-packet-weaver/packet.hpp"
 constexpr mal_packet_weaver::PacketSubsystemID PacketSubsystemNetwork = 0x0002;
 
+#ifndef MAL_PACKET_WEAVER_USE_MACROS
+#define MAL_PACKET_WEAVER_USE_MACROS 1
+#endif
+
+#if MAL_PACKET_WEAVER_USE_MACROS
+MAL_PACKET_WEAVER_DECLARE_PACKET(PingPacket, PacketSubsystemNetwork, 0, 120.0f)
+MAL_PACKET_WEAVER_DECLARE_PACKET(PongPacket, PacketSubsystemNetwork, 1, 120.0f)
+MAL_PACKET_WEAVER_DECLARE_PACKET_WITH_PAYLOAD(MessagePacket, PacketSubsystemNetwork, 2, 120.0f,
+                                              (std::string, message))
+MAL_PACKET_WEAVER_DECLARE_PACKET_WITH_PAYLOAD(EchoPacket, PacketSubsystemNetwork, 3, 120.0f,
+                                              (std::string, echo_message))
+#else
 /**
  * @brief Unique packet ID for PingPacket.
  */
@@ -32,7 +44,7 @@ constexpr mal_packet_weaver::UniquePacketID EchoPacketID =
 class PingPacket final : public mal_packet_weaver::DerivedPacket<class PingPacket>
 {
 public:
-    static constexpr mal_packet_weaver::UniquePacketID static_type = PingPacketID;
+    static constexpr mal_packet_weaver::UniquePacketID static_unique_id = PingPacketID;
     static constexpr float time_to_live = 10.0f;
    
 
@@ -50,7 +62,7 @@ inline mal_packet_weaver::PacketTypeRegistrationHelper<PingPacket> PingPacket::r
 class PongPacket final : public mal_packet_weaver::DerivedPacket<class PongPacket>
 {
 public:
-    static constexpr mal_packet_weaver::UniquePacketID static_type = PongPacketID;
+    static constexpr mal_packet_weaver::UniquePacketID static_unique_id = PongPacketID;
     static constexpr float time_to_live = 10.0f;
 
 private:
@@ -68,7 +80,7 @@ inline mal_packet_weaver::PacketTypeRegistrationHelper<PongPacket> PongPacket::r
 class MessagePacket final : public mal_packet_weaver::DerivedPacket<class MessagePacket>
 {
 public:
-    static constexpr mal_packet_weaver::UniquePacketID static_type = MessagePacketID;
+    static constexpr mal_packet_weaver::UniquePacketID static_unique_id = MessagePacketID;
     static constexpr float time_to_live = 60.0f;
     std::string message;
 
@@ -89,7 +101,7 @@ inline mal_packet_weaver::PacketTypeRegistrationHelper<MessagePacket> MessagePac
 class EchoPacket final : public mal_packet_weaver::DerivedPacket<class EchoPacket>
 {
 public:
-    static constexpr mal_packet_weaver::UniquePacketID static_type = EchoPacketID;
+    static constexpr mal_packet_weaver::UniquePacketID static_unique_id = EchoPacketID;
     static constexpr float time_to_live = 5.0f;
     std::string echo_message;
 
@@ -104,3 +116,4 @@ private:
 };
 
 inline mal_packet_weaver::PacketTypeRegistrationHelper<EchoPacket> EchoPacket::registration;
+#endif

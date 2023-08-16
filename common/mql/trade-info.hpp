@@ -23,14 +23,14 @@ namespace mql::mql5
         /** @brief Order execution/cancellation time in milliseconds since 01.01.1970 */
         MQL_long time_done_msc;
         /** @brief Order filling type */
-        EnumOrderTypeFilling state;
+        EnumOrderTypeFilling type_filling;
         /** @brief Order lifetime */
-        EnumOrderTypeTime state;
+        EnumOrderTypeTime type_time;
         /** @brief ID of an Expert Advisor that has placed the order (designed to ensure that each
          * Expert Advisor places its own unique number) */
         MQL_long magic;
         /** @brief The reason or source for placing an order */
-        EnumOrderReason state;
+        EnumOrderReason reason;
         /** @brief Position identifier that is set to an order as soon as it is executed. Each
          * executed order results in a deal that opens or modifies an already existing position. The
          * identifier of exactly this position is set to the executed order at this moment. */
@@ -89,7 +89,7 @@ namespace mql::mql5
             ar &stop_loss;
             ar &take_profit;
             ar &price_current;
-            ar &stoplimit;
+            ar &stop_limit;
         }
     };
 

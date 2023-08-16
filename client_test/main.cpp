@@ -9,7 +9,7 @@ using namespace mal_packet_weaver;
 using namespace mal_packet_weaver::crypto;
 
 constexpr int kAdditionalThreads = 7;
-constexpr int kAmountOfSessions = 1024;
+constexpr int kAmountOfSessions = 1;
 
 boost::asio::awaitable<void> setup_encryption_for_session(DispatcherSession &dispatcher_session,
                                                           boost::asio::io_context &io,
