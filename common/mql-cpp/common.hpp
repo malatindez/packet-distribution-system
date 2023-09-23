@@ -24,11 +24,10 @@ namespace boost::serialization
     {
         if (Archive::is_saving::value)
         {
-            uint64_t uint_time =
-                std::chrono::time_point_cast<std::chrono::milliseconds>(time_point)
-                                    .time_since_epoch()
-                                    .count();
-            ar & uint_time;
+            uint64_t uint_time = std::chrono::time_point_cast<std::chrono::milliseconds>(time_point)
+                                     .time_since_epoch()
+                                     .count();
+            ar &uint_time;
         }
         else
         {
@@ -36,6 +35,5 @@ namespace boost::serialization
             ar &uint_time;
             time_point = ::mql::MQL_DateTime(std::chrono::milliseconds(uint_time));
         }
-        
     }
-}
+}  // namespace boost::serialization

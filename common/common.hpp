@@ -27,7 +27,8 @@ mal_packet_weaver::crypto::Key read_key(std::filesystem::path const &path)
         }
         else
         {
-            fmt = std::format("Couldn't find the key at path: {}", (std::filesystem::current_path() / path).string());
+            fmt = std::format("Couldn't find the key at path: {}",
+                              (std::filesystem::current_path() / path).string());
         }
         spdlog::error(fmt);
         throw std::invalid_argument(fmt);

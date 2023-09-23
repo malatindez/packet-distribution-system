@@ -2,7 +2,6 @@
 #include "../mql/mql.hpp"
 #include "subsystems.hpp"
 
-
 class PacketTag
 {
     uint64_t uid;

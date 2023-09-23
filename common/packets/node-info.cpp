@@ -1,5 +1,7 @@
-#include "node-info.hpp"
 
+
+
+#include "node-info.hpp"
 #include <chrono>
 #include <cstdint>
 #include <fstream>
@@ -7,20 +9,13 @@
 #include <string>
 #include <thread>
 
-
 #ifdef _WIN32
-#include <Psapi.h>
-#include <iphlpapi.h>
-#include <netioapi.h>
-#include <pdh.h>
+#include <stdbool.h>
 #include <windows.h>
-#include <winsock2.h>
-#include <ws2def.h>
-#include <ws2ipdef.h>
-#include <ws2tcpip.h>
+#include <stdlib.h> 
+#include <psapi.h>
 
 #pragma comment(lib, "pdh.lib")
-#pragma comment(lib, "iphlpapi.lib")  // Link with the iphlpapi.lib library
 #elif defined(__linux__)
 #include <arpa/inet.h>
 #include <linux/if_link.h>
@@ -32,7 +27,6 @@
 #include <iostream>
 #include <sstream>
 #include <string>
-
 
 #elif defined(__APPLE__)
 #include <arpa/inet.h>
@@ -46,7 +40,6 @@
 #include <sstream>
 #include <string>
 
-
 #else
 #error "Unsupported operating system"
 #endif
@@ -57,7 +50,7 @@ double getCPULoad()
     FILETIME idleTime, kernelTime, userTime;
     GetSystemTimes(&idleTime, &kernelTime, &userTime);
 
-    ULARGE_INTEGER lastCPU, lastSysCPU, lastUserCPU;
+    ULARGE_INTEGER lastCPU, lastUserCPU;
     lastCPU.QuadPart = kernelTime.dwLowDateTime |
                        (static_cast<unsigned long long>(kernelTime.dwHighDateTime) << 32);
     lastUserCPU.QuadPart =
@@ -67,7 +60,7 @@ double getCPULoad()
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     GetSystemTimes(&idleTime, &kernelTime, &userTime);
-    ULARGE_INTEGER nowCPU, nowSysCPU, nowUserCPU;
+    ULARGE_INTEGER nowCPU, nowUserCPU;
     nowCPU.QuadPart = kernelTime.dwLowDateTime |
                       (static_cast<unsigned long long>(kernelTime.dwHighDateTime) << 32);
     nowUserCPU.QuadPart =
@@ -160,8 +153,8 @@ if (sysctlbyname("vm.swapusage", &vmusage, &size, NULL, 0) == 0)
     unsigned long long usedSwap = vmusage.xsu_used;
     return (totalSwap > 0) ? (100.0 * usedSwap) / totalSwap : 0.0;
 }
+return 0.0;
 #endif
-    return 0.0;
 }
 
 std::vector<NodeInformationResponse::DiskInfo> getDisksLoad()
@@ -254,8 +247,8 @@ uint64_t getSystemUptimeMs()
         time(&currentTime);
         return currentTime - boottime.tv_sec;
     }
-#endif
     return 0;
+#endif
 }
 
 int getProcessCount()
@@ -415,34 +408,7 @@ int getOpenSocketCount()
     int openSockets = 0;
 
 #ifdef _WIN32
-    WSADATA wsaData;
-    if (WSAStartup(MAKEWORD(2, 2), &wsaData) == 0)
-    {
-        MIB_TCPTABLE2* pTcpTable;
-        ULONG ulSize = 0;
-
-        // Get the required size for the TCP table
-        if (GetTcpTable2(nullptr, &ulSize, TRUE) == ERROR_INSUFFICIENT_BUFFER)
-        {
-            pTcpTable = (MIB_TCPTABLE2*)malloc(ulSize);
-            if (pTcpTable)
-            {
-                if (GetTcpTable2(pTcpTable, &ulSize, TRUE) == NO_ERROR)
-                {
-                    for (DWORD i = 0; i < pTcpTable->dwNumEntries; ++i)
-                    {
-                        if (pTcpTable->table[i].dwState == MIB_TCP_STATE_ESTAB)
-                        {
-                            ++openSockets;
-                        }
-                    }
-                }
-                free(pTcpTable);
-            }
-        }
-
-        WSACleanup();
-    }
+    //TODO
 
 #elif defined(__linux__) || defined(__APPLE__)
     // Use the Linux/POSIX-specific approach to count open sockets
